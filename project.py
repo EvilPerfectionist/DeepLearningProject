@@ -24,9 +24,7 @@ def calculate_diff(frame1, frame2):
     color = ('b','g','r')
     for i,col in enumerate(color):
         histr1 = cv2.calcHist([frame1], [i], None, [256], [0,256])
-        #print(histr1.flatten())
         histr2 = cv2.calcHist([frame2], [i], None, [256], [0,256])
-        #print(histr2.flatten())
         diff += np.square(np.subtract(histr1.flatten(), histr2.flatten())).mean()
     print(diff / 3)
     return diff
@@ -40,15 +38,8 @@ count = 0
 while(cap.isOpened()):
     ret, frame = cap.read()
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    thold = (frame > 10) * frame
-    #trimmedImage = trim(thold)
-    #print(trimmedImage.shape)
-    crop = frame[: ,:]
-    print(crop.shape)
-
     dsize = (256, 256)
-    crop = cv2.resize(crop, dsize)
+    crop = cv2.resize(frame, dsize)
 
     cropped_frame_list.append(crop)
 
@@ -56,7 +47,7 @@ while(cap.isOpened()):
         diff = calculate_diff(cropped_frame_list[-1], cropped_frame_list[-2])
         diff_list.append(diff)
         if sum(i > 5000.0 for i in diff_list) == 2:
-            if len(cropped_frame_list) < 8:
+            if len(cropped_frame_list) < 6:
                 cropped_frame_list = []
                 diff_list = []
             else:
@@ -65,13 +56,6 @@ while(cap.isOpened()):
                 cropped_frame_list = []
                 diff_list = []
 
-    #cv2.imshow('frame',crop)
-    color = ('b','g','r')
-    for i,col in enumerate(color):
-        histr = cv2.calcHist([crop],[i],None,[256],[0,256])
-        plt.plot(histr,color = col)
-        plt.xlim([0,256])
-    #plt.show()
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
