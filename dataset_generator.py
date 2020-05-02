@@ -3,6 +3,7 @@ import sys
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 from matplotlib import pyplot as plt
+import os
 
 def trim(frame):
     #crop top
@@ -29,7 +30,9 @@ def calculate_diff(frame1, frame2):
     print(diff / 3)
     return diff
 
-cap = cv2.VideoCapture('/home/leon/DeepLearning/Project/PussnToots.avi')
+video_name = 'PussnToots'
+os.mkdir('/home/leon/DeepLearning/Project/Dataset/' + video_name)
+cap = cv2.VideoCapture('/home/leon/DeepLearning/Project/' + video_name + '.avi')
 
 cropped_frame_list = []
 diff_list = []
@@ -52,7 +55,7 @@ while(cap.isOpened()):
                 diff_list = []
             else:
                 count += 1
-                cv2.imwrite('/home/leon/DeepLearning/Project/Dataset/raw_image_' + str(count) + '.png', cropped_frame_list[0])
+                cv2.imwrite('/home/leon/DeepLearning/Project/Dataset/' + video_name + '/raw_image_' + str(count) + '.png', cropped_frame_list[0])
                 cropped_frame_list = []
                 diff_list = []
 
