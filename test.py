@@ -54,7 +54,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
-        self.main = nn.Sequential(
+        self.block_1 = nn.Sequential(
 
             nn.Conv2d(3, 6, 5),
             nn.ReLU(True),
@@ -62,7 +62,11 @@ class Net(nn.Module):
 
             nn.Conv2d(6, 16, 5),
             nn.ReLU(True),
-            nn.MaxPool2d(2, 2),
+            nn.MaxPool2d(2, 2)
+        )
+        self.main = nn.Sequential(
+
+            self.block_1,
 
             Flatten(),
 
