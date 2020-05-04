@@ -30,7 +30,7 @@ def calculate_diff(frame1, frame2):
     print(diff / 3)
     return diff
 
-video_name = 'PussnToots'
+video_name = 'TheNightBeforChristmas'
 os.mkdir('/home/leon/DeepLearning/Project/Dataset/' + video_name)
 cap = cv2.VideoCapture('/home/leon/DeepLearning/Project/' + video_name + '.avi')
 

@@ -1,6 +1,6 @@
 import os
 
-video_name = 'PussnToots'
+video_name = 'TheMidnightSnack'
 path = '/home/leon/DeepLearning/Project/Dataset/' + video_name + '/'
 
 for count, filename in enumerate(os.listdir(path)):
