@@ -28,8 +28,8 @@ for single_image in read_images:
     b = b.reshape(b.shape[0] * b.shape[1])
     A = np.append(A, a)
     B = np.append(B, b)
-nbins = 16
-hist, a_edges, b_edges, _ = plt.hist2d(A, B, bins = nbins, norm = LogNorm(), cmap = 'plasma')
+nbins = 32
+hist, a_edges, b_edges, _ = plt.hist2d(A, B, bins = nbins, range = [[0, 255], [0, 255]], norm = LogNorm(), cmap = 'plasma')
 print(hist)
 z = np.sum(hist / len(A))
 print(np.count_nonzero(hist))
