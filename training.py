@@ -1,3 +1,5 @@
+import argparse
+import os
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -6,108 +8,52 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from data_imagenet import TrainImageFolder
 
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
+original_transform = transforms.Compose([
+    transforms.Resize(256),
+    transforms.RandomCrop(224),
+    transforms.RandomHorizontalFlip(),
+    #transforms.ToTensor()
+])
 
-        self.block_1 = nn.Sequential(
-            nn.Conv2d(1, 64, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(64, 64, 3, stride = 2, padding = 1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(64)
-        )
+def main(args):
+    # Create model directory
+    if not os.path.exists(args.model_path):
+        os.makedirs(args.model_path)
+    # Image preprocessing, normalization for the pretrained resnet
+    train_set = TrainImageFolder(args.image_dir, original_transform)
+    # Build data loader
+    data_loader = torch.utils.data.DataLoader(train_set, batch_size = args.batch_size, shuffle = True, num_workers = args.num_workers)
 
-        self.block_2 = nn.Sequential(
-            nn.Conv2d(64, 128, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(128, 128, 3, stride = 2, padding = 1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(128)
-        )
+    # Train the models
+    total_step = len(data_loader)
+    print(len(data_loader))
+    for epoch in range(args.num_epochs):
+        try:
+            for i, (images, img_ab) in enumerate(data_loader):
+                try:
+                    # Set mini-batch dataset
+                    images = images.unsqueeze(1).float().cuda()
+                    img_ab = img_ab.float()
+                except:
+                    pass
+        except:
+            pass
 
-        self.block_3 = nn.Sequential(
-            nn.Conv2d(128, 256, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(256, 256, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(256, 256, 3, stride = 2, padding = 1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(256)
-        )
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_path', type = str, default = '../model/', help = 'path for saving trained models')
+    parser.add_argument('--crop_size', type = int, default = 224, help = 'size for randomly cropping images')
+    parser.add_argument('--image_dir', type = str, default = '/home/leon/DeepLearning/Project/Dataset', help = 'directory for resized images')
+    parser.add_argument('--log_step', type = int, default = 1, help = 'step size for prining log info')
+    parser.add_argument('--save_step', type = int, default = 216, help = 'step size for saving trained models')
 
-        self.block_4 = nn.Sequential(
-            nn.Conv2d(256, 512, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(512, 512, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(512, 512, 3, padding = 1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(512)
-        )
-
-        self.block_5 = nn.Sequential(
-            nn.Conv2d(512, 512, 3, padding = 2, dilation = 2),
-            nn.ReLU(True),
-            nn.Conv2d(512, 512, 3, padding = 2, dilation = 2),
-            nn.ReLU(True),
-            nn.Conv2d(512, 512, 3, padding = 2, dilation = 2),
-            nn.ReLU(True),
-            nn.BatchNorm2d(512)
-        )
-
-        self.block_6 = nn.Sequential(
-            nn.Conv2d(512, 512, 3, padding = 2, dilation = 2),
-            nn.ReLU(True),
-            nn.Conv2d(512, 512, 3, padding = 2, dilation = 2),
-            nn.ReLU(True),
-            nn.Conv2d(512, 512, 3, padding = 2, dilation = 2),
-            nn.ReLU(True),
-            nn.BatchNorm2d(512)
-        )
-
-        self.block_7 = nn.Sequential(
-            nn.Conv2d(512, 512, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(512, 512, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(512, 512, 3, padding = 1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(512)
-        )
-
-        self.block_8 = nn.Sequential(
-            nn.Conv2d(512, 256, 4, stride = 2, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(256, 256, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(256, 256, 3, padding = 1),
-            nn.ReLU(True)
-        )
-
-        self.pred_layer = nn.Sequential(
-            nn.Conv2d(256, 313, 4, stride = 2, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(256, 256, 3, padding = 1),
-            nn.ReLU(True),
-            nn.Conv2d(256, 256, 3, padding = 1),
-            nn.ReLU(True)
-        )
-
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
-
-    def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
-
-net = Net()
+    # Model parameters
+    parser.add_argument('--num_epochs', type = int, default = 200)
+    parser.add_argument('--batch_size', type = int, default = 256)
+    parser.add_argument('--num_workers', type = int, default = 2)
+    parser.add_argument('--learning_rate', type = float, default = 1e-3)
+    args = parser.parse_args()
+    #print(args)
+    main(args)
