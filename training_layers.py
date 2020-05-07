@@ -196,7 +196,7 @@ class NNEncode():
 
     def encode_points_mtx_nd(self, pts_nd, axis=1, returnSparse=False, sameBlock=False):
         pts_flt = flatten_nd_array(pts_nd, axis=axis)
-        print('pts_flt' + str(pts_flt.shape))
+        #print('pts_flt' + str(pts_flt.shape))
         P = pts_flt.shape[0]
         if (sameBlock and self.alreadyUsed):
             self.pts_enc_flt[...] = 0  # already pre-allocated
