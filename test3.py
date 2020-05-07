@@ -1,7 +1,6 @@
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
+Y = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]])
-nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(X)
-distances, indices = nbrs.kneighbors(X)
-print(distances)
-print(indices)
+Z = Y[X]
+print(Z)
