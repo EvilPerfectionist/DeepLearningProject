@@ -36,7 +36,7 @@ class TrainImageFolder(datasets.ImageFolder):
                 img_ab = torch.from_numpy(img_ab.transpose((2, 0, 1)))
                 # print('img_ori',img_original.shape)
                 # print('img_ab',img_ab.size())
-                # img_original = rgb2lab(img_original)[:,:,0]-50.
+                img_original = rgb2lab(img_original)[:,:,0]-50.
                 # img_show = Image.fromarray(img_original, 'RGB')
                 # img_show.show()
                 img_original = torch.from_numpy(img_original)

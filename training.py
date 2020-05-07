@@ -47,25 +47,38 @@ def main(args):
     for epoch in range(args.num_epochs):
         for i, (images, img_ab) in enumerate(data_loader):
             # Set mini-batch dataset
+            print(images.shape)
+            print(img_ab.shape)
             images = images.unsqueeze(1).float().to(device)
             img_ab = img_ab.float()
+            print(images.shape)
+            print(img_ab.shape)
             encode, max_encode = encode_layer.forward(img_ab)
             targets = torch.Tensor(max_encode).long().to(device)
+            print('set_tar',set(targets[0].cpu().data.numpy().flatten()))
             boost = torch.Tensor(boost_layer.forward(encode)).float().to(device)
             mask = torch.Tensor(nongray_mask.forward(img_ab)).float().to(device)
             boost_nongray = boost * mask
             outputs = model(images)#.log()
-            # output=outputs[0].cpu().data.numpy()
-            # out_max=np.argmax(output,axis=0)
-            #
-            # print('set',set(out_max.flatten()))
-            # loss = (criterion(outputs,targets)*(boost_nongray.squeeze(1))).mean()
-            #
-            # model.zero_grad()
-            #
-            # loss.backward()
-            # optimizer.step()
-            print('3')
+            output=outputs[0].cpu().data.numpy()
+            out_max=np.argmax(output,axis=0)
+
+            print('set',set(out_max.flatten()))
+            loss = (criterion(outputs,targets)*(boost_nongray.squeeze(1))).mean()
+
+            model.zero_grad()
+
+            loss.backward()
+            optimizer.step()
+            # Print log info
+            if i % args.log_step == 0:
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
+                  .format(epoch, args.num_epochs, i, total_step, loss.item()))
+
+            # Save the model checkpoints
+            if (i + 1) % args.save_step == 0:
+                torch.save(model.state_dict(), os.path.join(
+                    args.model_path, 'model-{}-{}.ckpt'.format(epoch + 1, i + 1)))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -76,8 +89,8 @@ if __name__ == '__main__':
     parser.add_argument('--save_step', type = int, default = 216, help = 'step size for saving trained models')
 
     # Model parameters
-    parser.add_argument('--num_epochs', type = int, default = 200)
-    parser.add_argument('--batch_size', type = int, default = 256)
+    parser.add_argument('--num_epochs', type = int, default = 2)
+    parser.add_argument('--batch_size', type = int, default = 5)
     parser.add_argument('--num_workers', type = int, default = 2)
     parser.add_argument('--learning_rate', type = float, default = 1e-3)
     args = parser.parse_args()

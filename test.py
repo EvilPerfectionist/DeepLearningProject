@@ -101,6 +101,7 @@ for epoch in range(2):  # loop over the dataset multiple times
     for i, data in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
         inputs, labels = data[0].to(device), data[1].to(device)
+        print(inputs.shape)
 
         # zero the parameter gradients
         optimizer.zero_grad()
