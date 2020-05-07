@@ -9,6 +9,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from data_imagenet import TrainImageFolder
+from model import Color_model
+from training_layers import PriorBoostLayer, NNEncLayer, ClassRebalanceMultLayer, NonGrayMaskLayer
 
 original_transform = transforms.Compose([
     transforms.Resize(256),
@@ -26,20 +28,44 @@ def main(args):
     # Build data loader
     data_loader = torch.utils.data.DataLoader(train_set, batch_size = args.batch_size, shuffle = True, num_workers = args.num_workers)
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(device)
+    # Build the models
+    model = Color_model()
+    model.to(device)
+    #model.load_state_dict(torch.load('../model/models/model-171-216.ckpt'))
+    encode_layer = NNEncLayer()
+    boost_layer = PriorBoostLayer()
+    nongray_mask = NonGrayMaskLayer()
+    # Loss and optimizer
+    criterion = nn.CrossEntropyLoss(reduction='none')
+    optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
+
     # Train the models
     total_step = len(data_loader)
     print(len(data_loader))
     for epoch in range(args.num_epochs):
-        try:
-            for i, (images, img_ab) in enumerate(data_loader):
-                try:
-                    # Set mini-batch dataset
-                    images = images.unsqueeze(1).float().cuda()
-                    img_ab = img_ab.float()
-                except:
-                    pass
-        except:
-            pass
+        for i, (images, img_ab) in enumerate(data_loader):
+            # Set mini-batch dataset
+            images = images.unsqueeze(1).float().to(device)
+            img_ab = img_ab.float()
+            encode, max_encode = encode_layer.forward(img_ab)
+            targets = torch.Tensor(max_encode).long().to(device)
+            boost = torch.Tensor(boost_layer.forward(encode)).float().to(device)
+            mask = torch.Tensor(nongray_mask.forward(img_ab)).float().to(device)
+            boost_nongray = boost * mask
+            outputs = model(images)#.log()
+            # output=outputs[0].cpu().data.numpy()
+            # out_max=np.argmax(output,axis=0)
+            #
+            # print('set',set(out_max.flatten()))
+            # loss = (criterion(outputs,targets)*(boost_nongray.squeeze(1))).mean()
+            #
+            # model.zero_grad()
+            #
+            # loss.backward()
+            # optimizer.step()
+            print('3')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
