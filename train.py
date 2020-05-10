@@ -97,11 +97,13 @@ def run_training(args):
                 print('VALIDATION:')
 
             for idx, sample in enumerate(data_loaders[phase]):
+                print(sample.shape)
 
                 # get data
                 img_l, real_img_lab = sample[:, 0:1, :, :].float().to(device), sample.float().to(device)
 
                 # generate targets
+                print(real_img_lab.size(0))
                 target_ones = torch.ones(real_img_lab.size(0), 1).to(device)
                 target_zeros = torch.zeros(real_img_lab.size(0), 1).to(device)
 
@@ -195,13 +197,13 @@ def get_arguments():
                         help='Download and extraction path for the dataset.')
     parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
     parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
-    parser.add_argument("--img_size", type = int, default = 32)
+    parser.add_argument("--img_size", type = int, default = 256)
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy')
     parser.add_argument("--color_info", type = str, default = 'dist', help = 'option should be dist or RGB')
-    parser.add_argument('--save_path', type=str, default='./checkpoints',
+    parser.add_argument('--save_path', type=str, default='../checkpoints',
                         help='Save and load path for the network weights.')
     parser.add_argument('--save_freq', type=int, default=20, help='Save frequency during training.')
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--start_epoch', type=int, default=0,
                         help='If start_epoch>0, load previously saved weigth from the save_path.')

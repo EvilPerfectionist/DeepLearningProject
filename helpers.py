@@ -30,7 +30,7 @@ def save_sample(real_imgs_lab, fake_imgs_lab, save_path, plot_size=20, scale=2.2
     plot_size = min(plot_size, batch_size)
 
     # create white canvas
-    canvas = np.ones((3*32 + 4*6, plot_size*32 + (plot_size+1)*6, 3), dtype=np.uint8)*255
+    canvas = np.ones((3*256 + 4*6, plot_size*256 + (plot_size+1)*6, 3), dtype=np.uint8)*255
 
     real_imgs_lab = real_imgs_lab.cpu().numpy()
     fake_imgs_lab = fake_imgs_lab.cpu().numpy()
@@ -41,10 +41,10 @@ def save_sample(real_imgs_lab, fake_imgs_lab, save_path, plot_size=20, scale=2.2
         fake_bgr = postprocess(fake_imgs_lab[i])
         grayscale = np.expand_dims(cv2.cvtColor(real_bgr.astype(np.float32), cv2.COLOR_BGR2GRAY), 2)
         # paint
-        x = (i+1)*6+i*32
-        canvas[6:38, x:x+32, :] = real_bgr
-        canvas[44:76, x:x+32, :] = np.repeat(grayscale, 3, axis=2)
-        canvas[82:114, x:x+32, :] = fake_bgr
+        x = (i+1)*6+i*256
+        canvas[6:262, x:x+256, :] = real_bgr
+        canvas[268:524, x:x+256, :] = np.repeat(grayscale, 3, axis=2)
+        canvas[530:786, x:x+256, :] = fake_bgr
 
     # scale
     canvas = cv2.resize(canvas, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)

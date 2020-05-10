@@ -46,6 +46,7 @@ class ConvBlock(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
+        print(x.shape)
         x = self.model(x)
         return x
 
@@ -71,6 +72,7 @@ class TransConvBlock(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x, skip_input):
+        print(x.shape, skip_input.shape)
         x = self.model(x)
         x = torch.cat((x, skip_input), 1)
         return x
@@ -84,33 +86,46 @@ class Generator(nn.Module):
         self.norm = normalization_type
 
         self.down1 = ConvBlock(1, 64, normalize=self.norm, kernel_size=4, stride=1, padding=0, dropout=0)
-        self.down2 = ConvBlock(64, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.down3 = ConvBlock(128, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.down4 = ConvBlock(256, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.down5 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down2 = ConvBlock(64, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down3 = ConvBlock(64, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down4 = ConvBlock(128, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down5 = ConvBlock(256, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down6 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down7 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down8 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
 
-        self.up1 = TransConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0.5)
-        self.up2 = TransConvBlock(1024, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0.5)
-        self.up3 = TransConvBlock(512, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.up4 = TransConvBlock(256, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.up1 = TransConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.up2 = TransConvBlock(1024, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.up3 = TransConvBlock(1024, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.up4 = TransConvBlock(1024, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.up5 = TransConvBlock(512, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.up6 = TransConvBlock(256, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.up7 = TransConvBlock(128, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
         self.final = ConvBlock(
             128, 2, normalize=None, kernel_size=1, stride=1, padding=0, dropout=0, activation_fn=nn.Tanh()
         )
 
     def forward(self, x):
-        x = F.interpolate(x, size=(35, 35), mode='bilinear', align_corners=True)
+        print(x.dtype)
+        x = F.interpolate(x, size=(259, 259), mode='bilinear', align_corners=True)
         d1 = self.down1(x)
         d2 = self.down2(d1)
         d3 = self.down3(d2)
         d4 = self.down4(d3)
         d5 = self.down5(d4)
+        d6 = self.down6(d5)
+        d7 = self.down7(d6)
+        d8 = self.down8(d7)
 
-        u1 = self.up1(d5, d4)
-        u2 = self.up2(u1, d3)
-        u3 = self.up3(u2, d2)
-        u4 = self.up4(u3, d1)
+        u1 = self.up1(d8, d7)
+        u2 = self.up2(u1, d6)
+        u3 = self.up3(u2, d5)
+        u4 = self.up4(u3, d4)
+        u5 = self.up5(u4, d3)
+        u6 = self.up6(u5, d2)
+        u7 = self.up7(u6, d1)
 
-        x = self.final(u4)
+        x = self.final(u7)
         return x
 
 
@@ -125,17 +140,24 @@ class Discriminator(nn.Module):
         self.down2 = ConvBlock(64, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
         self.down3 = ConvBlock(128, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
         self.down4 = ConvBlock(256, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down5 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down6 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.down7 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
         self.final = ConvBlock(
             512, 1, normalize=None, kernel_size=4, stride=1, padding=0, dropout=0, activation_fn=nn.Sigmoid()
         )
 
     def forward(self, x):
-        x = F.interpolate(x, size=(35, 35), mode='bilinear', align_corners=True)
+        x = F.interpolate(x, size=(259, 259), mode='bilinear', align_corners=True)
         d1 = self.down1(x)
         d2 = self.down2(d1)
         d3 = self.down3(d2)
         d4 = self.down4(d3)
+        d5 = self.down5(d4)
+        d6 = self.down6(d5)
+        d7 = self.down7(d6)
 
-        x = self.final(d4)
+        x = self.final(d7)
         x = x.view(x.size()[0], -1)
+        print(x.shape)
         return x
