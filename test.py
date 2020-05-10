@@ -1,124 +1,86 @@
+import os
+import argparse
 import torch
-import torchvision
-import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-import numpy as np
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
+from torch.utils.data import DataLoader
+from datasets import Cifar10Dataset
+from networks import Generator
+from helpers import save_test_sample, print_args
 
-# functions to show an image
-def imshow(img):
-    img = img / 2 + 0.5     # unnormalize
-    npimg = img.numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
-    plt.show()
 
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+def init_test(args):
+    """Create the data loader and the generators for testing purposes."""
+    # create loader
+    dataset = Cifar10Dataset.get_datasets_from_scratch(args.data_path)['test']
+    print('Test dataset len: {}'.format(len(dataset)))
+    data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-trainset = torchvision.datasets.CIFAR10(root='/home/leon/DeepLearning/Project/data', train=True,
-                                        download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
-                                          shuffle=True, num_workers=2)
+    # check CUDA availability and set device
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print('Use GPU: {}'.format(str(device) != 'cpu'))
 
-testset = torchvision.datasets.CIFAR10(root='/home/leon/DeepLearning/Project/data', train=False,
-                                       download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=4,
-                                         shuffle=False, num_workers=2)
+    # download the weights for the generators
+    if not os.path.exists('batchnorm_ep200_weigths_gen.pt'):
+        print('Downloading model weights for generator with BN...')
+        os.system('wget https://www.dropbox.com/s/r33ndl969q83gik/batchnorm_ep200_weigths_gen.pt')
 
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    if not os.path.exists('spectralnorm_ep100_weights_gen.pt'):
+        print('Downloading model weights for generator with SN...')
+        os.system('wget https://www.dropbox.com/s/tccxduyqp3dj5dg/spectralnorm_ep100_weights_gen.pt')
 
-# get some random training images
-dataiter = iter(trainloader)
-images, labels = dataiter.next()
+    # load generator that was trained with batch norm
+    generator_bn = Generator(normalization_type='batch').to(device)
+    # load generator that was trained with spectral norm
+    generator_sn = Generator(normalization_type='batch').to(device)
 
-# show images
-imshow(torchvision.utils.make_grid(images))
-# print labels
-print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+    # load the weights
+    generator_bn.load_state_dict(torch.load('batchnorm_ep200_weigths_gen.pt', map_location=device))
+    generator_sn.load_state_dict(torch.load('spectralnorm_ep100_weights_gen.pt', map_location=device))
 
-class Flatten(torch.nn.Module):
-    def forward(self, x):
-        batch_size = x.shape[0]
-        return x.view(batch_size, -1)
+    # make save dir, if needed
+    if not os.path.exists(args.save_path):
+        os.makedirs(args.save_path)
 
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
-        self.block_1 = nn.Sequential(
+    return device, data_loader, generator_bn, generator_sn
 
-            nn.Conv2d(3, 6, 5),
-            nn.ReLU(True),
-            nn.MaxPool2d(2, 2),
 
-            nn.Conv2d(6, 16, 5),
-            nn.ReLU(True),
-            nn.MaxPool2d(2, 2)
-        )
-        self.main = nn.Sequential(
+def run_test(args):
+    """Run the networks on the test set, and save/show the samples."""
+    device, data_loader, generator_bn, generator_sn = init_test(args)
 
-            self.block_1,
+    # run through the dataset and display the first few images of every batch
+    for idx, sample in enumerate(data_loader):
 
-            Flatten(),
+        img_l, real_img_lab = sample[:, 0:1, :, :].to(device), sample.to(device)
 
-            nn.Linear(16 * 5 * 5, 120),
-            nn.ReLU(True),
-            nn.Linear(120, 84),
-            nn.ReLU(True),
-            nn.Linear(84, 10)
+        # generate images with bn model
+        fake_img_ab_bn = generator_bn(img_l).detach()
+        fake_img_lab_bn = torch.cat([img_l, fake_img_ab_bn], dim=1)
 
-        )
+        # generate images with sn model
+        fake_img_ab_sn = generator_sn(img_l).detach()
+        fake_img_lab_sn = torch.cat([img_l, fake_img_ab_sn], dim=1)
 
-    def forward(self, x):
-        # x = self.pool(F.relu(self.conv1(x)))
-        # x = self.pool(F.relu(self.conv2(x)))
-        # x = x.view(-1, 16 * 5 * 5)
-        # x = F.relu(self.fc1(x))
-        # x = F.relu(self.fc2(x))
-        # x = self.fc3(x)
-        x = self.main(x)
-        return x
+        print('sample {}/{}'.format(idx + 1, len(data_loader) + 1))
+        save_test_sample(real_img_lab, fake_img_lab_bn, fake_img_lab_sn,
+                         os.path.join(args.save_path, 'test_sample_{}.png'.format(idx)), show=True)
 
-net = Net()
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(device)
-net.to(device)
 
-for epoch in range(2):  # loop over the dataset multiple times
+def get_arguments():
+    """Get command line arguments."""
+    parser = argparse.ArgumentParser(description='Image colorization with GANs.')
+    parser.add_argument('--data_path', type=str, default='./data', help='Download and extraction path for the dataset.')
+    parser.add_argument('--save_path', type=str, default='./output_imgs', help='Save path for the test imgs.')
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--num_workers', type=int, default=4)
 
-    running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
-        # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data[0].to(device), data[1].to(device)
-        print(inputs.shape)
+    args = parser.parse_args()
+    return args
 
-        # zero the parameter gradients
-        optimizer.zero_grad()
 
-        # forward + backward + optimize
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+if __name__ == '__main__':
+    args = get_arguments()
 
-        # print statistics
-        running_loss += loss.item()
-        if i % 2000 == 1999:    # print every 2000 mini-batches
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 2000))
-            running_loss = 0.0
+    # display args
+    print_args(args)
 
-print('Finished Training')
-PATH = '/home/leon/DeepLearning/Project/cifar_net.pth'
-torch.save(net.state_dict(), PATH)
+    run_test(args)

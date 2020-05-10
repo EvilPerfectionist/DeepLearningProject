@@ -2,8 +2,11 @@ import os
 import argparse
 import numpy as np
 import torch
+import sys
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 from torch.utils.data import DataLoader
 from datasets import Cifar10Dataset
+from dataset import mydata
 from networks import Generator, Discriminator, weights_init_normal
 from helpers import print_args, print_losses
 from helpers import save_sample, adjust_learning_rate
@@ -11,7 +14,10 @@ from helpers import save_sample, adjust_learning_rate
 
 def init_training(args):
     """Initialize the data loader, the networks, the optimizers and the loss functions."""
-    datasets = Cifar10Dataset.get_datasets_from_scratch(args.data_path)
+    datasets = dict()
+    datasets['train'] = mydata(img_path = args.train_data_path, img_size = args.img_size, km_file_path = args.km_file_path, color_info = args.color_info)
+    datasets['test'] = mydata(img_path = args.test_data_path, img_size = args.img_size,km_file_path = args.km_file_path, color_info = args.color_info)
+    #datasets = Cifar10Dataset.get_datasets_from_scratch(args.data_path)
     for phase in ['train', 'test']:
         print('{} dataset len: {}'.format(phase, len(datasets[phase])))
 
@@ -187,9 +193,14 @@ def get_arguments():
     )
     parser.add_argument('--data_path', type=str, default='../data',
                         help='Download and extraction path for the dataset.')
-    parser.add_argument('--save_path', type=str, default='../checkpoints',
+    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
+    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
+    parser.add_argument("--img_size", type = int, default = 32)
+    parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy')
+    parser.add_argument("--color_info", type = str, default = 'dist', help = 'option should be dist or RGB')
+    parser.add_argument('--save_path', type=str, default='./checkpoints',
                         help='Save and load path for the network weights.')
-    parser.add_argument('--save_freq', type=int, default=5, help='Save frequency during training.')
+    parser.add_argument('--save_freq', type=int, default=20, help='Save frequency during training.')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--start_epoch', type=int, default=0,
@@ -212,6 +223,8 @@ def get_arguments():
 
 if __name__ == '__main__':
     args = get_arguments()
+
     # display arguments
     print_args(args)
+
     run_training(args)
