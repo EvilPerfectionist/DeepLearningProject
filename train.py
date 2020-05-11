@@ -197,14 +197,14 @@ def get_arguments():
     parser.add_argument('--data_path', type=str, default='../data',
                         help='Download and extraction path for the dataset.')
     parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
-    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
-    parser.add_argument("--img_size", type = int, default = 256)
+    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
+    parser.add_argument("--img_size", type = int, default = 128)
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy')
     parser.add_argument("--color_info", type = str, default = 'dist', help = 'option should be dist or RGB')
     parser.add_argument('--save_path', type=str, default='../checkpoints',
                         help='Save and load path for the network weights.')
     parser.add_argument('--save_freq', type=int, default=20, help='Save frequency during training.')
-    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--start_epoch', type=int, default=0,
                         help='If start_epoch>0, load previously saved weigth from the save_path.')

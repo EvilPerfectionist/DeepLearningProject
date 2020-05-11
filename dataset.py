@@ -32,6 +32,7 @@ class mydata(Dataset):
         img_item = {}
         rgb_image = Image.open(os.path.join(self.img_path, self.img[i])).convert('RGB')
         test_image = cv2.imread(os.path.join(self.img_path, self.img[i]))
+        test_image = cv2.resize(test_image, (self.img_size, self.img_size))
         w, h = rgb_image.size
         if w != h:
             min_val = min(w, h)
