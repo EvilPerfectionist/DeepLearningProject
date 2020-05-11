@@ -39,7 +39,8 @@ def save_sample(real_imgs_lab, fake_imgs_lab, save_path, plot_size=20, scale=2.2
         # postprocess real and fake samples
         real_bgr = postprocess(real_imgs_lab[i])
         fake_bgr = postprocess(fake_imgs_lab[i])
-        
+        cv2.imshow("image", real_bgr)
+        cv2.waitKey(0)
         grayscale = np.expand_dims(cv2.cvtColor(real_bgr.astype(np.float32), cv2.COLOR_BGR2GRAY), 2)
         # paint
         x = (i+1)*6+i*256

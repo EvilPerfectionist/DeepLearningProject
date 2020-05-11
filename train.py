@@ -4,8 +4,9 @@ import numpy as np
 import torch
 import sys
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+import cv2
 from torch.utils.data import DataLoader
-from datasets import Cifar10Dataset
+from datasets import Cifar10Dataset, postprocess
 from dataset import mydata
 from networks import Generator, Discriminator, weights_init_normal
 from helpers import print_args, print_losses
@@ -101,6 +102,9 @@ def run_training(args):
 
                 # get data
                 img_l, real_img_lab = sample[:, 0:1, :, :].float().to(device), sample.float().to(device)
+                # real_bgr = postprocess(sample.cpu().numpy()[0])
+                # cv2.imshow("image", real_bgr)
+                # cv2.waitKey(0)
 
                 # generate targets
                 print(real_img_lab.size(0))
