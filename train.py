@@ -102,9 +102,6 @@ def run_training(args):
 
                 # get data
                 img_l, real_img_lab = sample[:, 0:1, :, :].float().to(device), sample.float().to(device)
-                # real_bgr = postprocess(sample.cpu().numpy()[0])
-                # cv2.imshow("image", real_bgr)
-                # cv2.waitKey(0)
 
                 # generate targets
                 print(real_img_lab.size(0))
@@ -199,8 +196,8 @@ def get_arguments():
     )
     parser.add_argument('--data_path', type=str, default='../data',
                         help='Download and extraction path for the dataset.')
-    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
-    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
+    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
+    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
     parser.add_argument("--img_size", type = int, default = 256)
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy')
     parser.add_argument("--color_info", type = str, default = 'dist', help = 'option should be dist or RGB')

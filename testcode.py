@@ -2,10 +2,13 @@ import numpy as np
 import sys
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
+import os
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 import glob
 from scipy.interpolate import interp2d
+from PIL import Image
+from skimage.color import rgb2lab, lab2rgb
 
 def preprocess(img_bgr):
     # to 32bit img
@@ -41,11 +44,22 @@ for folder in folders[0:1]:
         imagenames_list.append(f)
 
     read_images = []
-    for image in imagenames_list:
+    for image in imagenames_list[0:1]:
         image_bgr = cv2.imread(image)
-        image_lab = preprocess(image_bgr)
-        image_bgr = postprocess(image_lab)
-        read_images.append(image_bgr)
+        #print(image_bgr)
+        rgb_image = np.array(Image.open(image).convert('RGB'))
+        #print(rgb_image)
+        image_lab = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB)
+        # image_lab[:, :, 0] = image_lab[:, :, 0]/50 - 1
+        # image_lab[:, :, 1] = image_lab[:, :, 1]/127
+        # image_lab[:, :, 2] = image_lab[:, :, 2]/127
+        print(image_lab)
+        lab_image = rgb2lab(rgb_image)
+        rgb_image2 = lab2rgb(lab_image)
+        print(lab_image)
+        #image_bgr = postprocess(image_lab)
+        rgb_image = cv2.cvtColor(np.array((rgb_image2 * 255.0).astype(np.uint8)), cv2.COLOR_RGB2BGR)
+        read_images.append(rgb_image)
 cv2.imshow("image", read_images[0])
 cv2.waitKey(0)
 cv2.destroyAllWindows()
