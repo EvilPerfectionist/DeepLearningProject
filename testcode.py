@@ -67,3 +67,4 @@ from skimage.color import rgb2lab, lab2rgb
 #----------------------------------------------------------#
 x = np.array([[1,2],[3,4]])
 print(x.repeat(4, axis = 0))
+print(int(128 / np.power(2, 5)))

@@ -8,7 +8,7 @@ import cv2
 from torch.utils.data import DataLoader
 from dataset import mydata
 from memory_network import Memory_Network
-from networks import Generator, Discriminator, weights_init_normal
+from networks import Generator, unet_generator, Discriminator, Discriminator2, weights_init_normal
 from helpers import print_args, print_losses
 from helpers import save_sample, adjust_learning_rate
 from util import zero_grad
@@ -18,7 +18,6 @@ def init_training(args):
     datasets = dict()
     datasets['train'] = mydata(img_path = args.train_data_path, img_size = args.img_size, km_file_path = args.km_file_path, color_info = args.color_info)
     datasets['test'] = mydata(img_path = args.test_data_path, img_size = args.img_size,km_file_path = args.km_file_path, color_info = args.color_info)
-    #datasets = Cifar10Dataset.get_datasets_from_scratch(args.data_path)
     for phase in ['train', 'test']:
         print('{} dataset len: {}'.format(phase, len(datasets[phase])))
 
@@ -36,6 +35,8 @@ def init_training(args):
     mem = Memory_Network(mem_size = args.mem_size, color_info = args.color_info, color_feat_dim = args.color_feat_dim, spatial_feat_dim = args.spatial_feat_dim, top_k = args.top_k, alpha = args.alpha).to(device)
     generator = Generator(args.gen_norm).to(device)
     discriminator = Discriminator(args.disc_norm).to(device)
+    generator2 = unet_generator(1, 2, args.n_feats, args.color_feat_dim).to(device)
+    discriminator2 = Discriminator2(3, args.color_feat_dim, args.img_size).to(device)
 
     # initialize weights
     if args.apply_weight_init:
@@ -46,6 +47,8 @@ def init_training(args):
     optimizers = {
         'gen': torch.optim.Adam(generator.parameters(), lr=args.base_lr_gen, betas=(0.5, 0.999)),
         'disc': torch.optim.Adam(discriminator.parameters(), lr=args.base_lr_disc, betas=(0.5, 0.999)),
+        'gen2': torch.optim.Adam(generator2.parameters(), lr=args.base_lr_mem),
+        'disc2': torch.optim.Adam(discriminator2.parameters(), lr=args.base_lr_mem),
         'mem': torch.optim.Adam(mem.parameters(), lr = args.base_lr_mem)
     }
 
@@ -53,6 +56,7 @@ def init_training(args):
     losses = {
         'l1': torch.nn.L1Loss(reduction='mean'),
         'disc': torch.nn.BCELoss(reduction='mean'),
+        'smoothl1': torch.nn.SmoothL1Loss()
     }
 
     # make save dir, if it does not exists
@@ -72,12 +76,12 @@ def init_training(args):
             map_location=device
         ))
 
-    return global_step, device, data_loaders, mem, generator, discriminator, optimizers, losses
+    return global_step, device, data_loaders, mem, generator, discriminator, generator2, discriminator2, optimizers, losses
 
 
 def run_training(args):
     """Initialize and run the training process."""
-    global_step, device, data_loaders, mem, generator, discriminator, optimizers, losses = init_training(args)
+    global_step, device, data_loaders, mem, generator, discriminator, generator2, discriminator2, optimizers, losses = init_training(args)
     #  run training process
     for epoch in range(args.start_epoch, args.max_epoch):
         print('\n========== EPOCH {} =========='.format(epoch))
@@ -131,84 +135,110 @@ def run_training(args):
                         res_feature = mem(res_input)
                         mem.memory_update(res_feature, color_feat, args.color_thres, index)
 
-                if phase == 'train':
-                    # adjust LR
-                    global_step += 1
-                    adjust_learning_rate(optimizers['gen'], global_step, base_lr=args.base_lr_gen,
-                                         lr_decay_rate=args.lr_decay_rate, lr_decay_steps=args.lr_decay_steps)
-                    adjust_learning_rate(optimizers['disc'], global_step, base_lr=args.base_lr_disc,
-                                         lr_decay_rate=args.lr_decay_rate, lr_decay_steps=args.lr_decay_steps)
+                    dis_color_feat = torch.cat([torch.unsqueeze(color_feat, 2) for _ in range(args.img_size)], dim = 2)
+                    dis_color_feat = torch.cat([torch.unsqueeze(dis_color_feat, 3) for _ in range(args.img_size)], dim = 3)
+                    fake_img_ab = generator2(img_l, color_feat)
+                    real = discriminator2(img_ab, img_l, dis_color_feat)
+                    d_loss_real = losses['disc'](real, target_ones)
 
-                    # reset generator gradients
-                    optimizers['gen'].zero_grad()
+                    fake = discriminator2(fake_img_ab, img_l, dis_color_feat)
+                    d_loss_fake = losses['disc'](fake, target_zeros)
+                    d_loss = d_loss_real + d_loss_fake
 
-                # train / inference the generator
-                with torch.set_grad_enabled(phase == 'train'):
-                    fake_img_ab = generator(img_l)
-                    fake_img_lab = torch.cat([img_l, fake_img_ab], dim=1).to(device)
+                    optimizers['disc2'].zero_grad()
+                    d_loss.backward()
+                    optimizers['disc2'].step()
 
-                    # adv loss
-                    adv_loss = losses['disc'](discriminator(fake_img_lab), target_ones)
-                    # l1 loss
-                    l1_loss = losses['l1'](real_img_lab[:, 1:, :, :], fake_img_ab)
-                    # full gen loss
-                    full_gen_loss = (1.0 - args.l1_weight) * adv_loss + (args.l1_weight * l1_loss)
+                    ### 4) Train Generator
+                    fake_img_ab = generator2(img_l, color_feat)
+                    fake = discriminator2(fake_img_ab, img_l, dis_color_feat)
+                    g_loss_GAN = losses['disc'](fake, target_ones)
 
-                    if phase == 'train':
-                        full_gen_loss.backward()
-                        optimizers['gen'].step()
+                    g_loss_smoothL1 = losses['smoothl1'](fake_img_ab, img_ab)
+                    g_loss = g_loss_GAN + g_loss_smoothL1
 
-                epoch_gen_adv_loss += adv_loss.item()
-                epoch_gen_l1_loss += l1_loss.item()
+                    optimizers['gen2'].zero_grad()
+                    g_loss.backward()
+                    optimizers['gen2'].step()
 
-                if phase == 'train':
-                    # reset discriminator gradients
-                    optimizers['disc'].zero_grad()
-
-                # train / inference the discriminator
-                with torch.set_grad_enabled(phase == 'train'):
-                    prediction_real = discriminator(real_img_lab)
-                    prediction_fake = discriminator(fake_img_lab.detach())
-
-                    loss_real = losses['disc'](prediction_real, target_ones * args.smoothing)
-                    loss_fake = losses['disc'](prediction_fake, target_zeros)
-                    full_disc_loss = loss_real + loss_fake
-
-                    if phase == 'train':
-                        full_disc_loss.backward()
-                        optimizers['disc'].step()
-
-                epoch_disc_real_loss += loss_real.item()
-                epoch_disc_fake_loss += loss_fake.item()
-                epoch_disc_real_acc += np.mean(prediction_real.detach().cpu().numpy() > 0.5)
-                epoch_disc_fake_acc += np.mean(prediction_fake.detach().cpu().numpy() <= 0.5)
-
-                # save the first sample for later
-                if phase == 'test' and idx == 0:
-                    sample_real_img_lab = real_img_lab
-                    sample_fake_img_lab = fake_img_lab
-
-            # display losses
-            print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss,
-                         epoch_disc_real_loss, epoch_disc_fake_loss,
-                         epoch_disc_real_acc, epoch_disc_fake_acc,
-                         len(data_loaders[phase]), args.l1_weight)
-
-            # save after every nth epoch
-            if phase == 'test':
-                if epoch % args.save_freq == 0 or epoch == args.max_epoch - 1:
-                    gen_path = os.path.join(args.save_path, 'checkpoint_ep{}_gen.pt'.format(epoch))
-                    disc_path = os.path.join(args.save_path, 'checkpoint_ep{}_disc.pt'.format(epoch))
-                    torch.save(generator.state_dict(), gen_path)
-                    torch.save(discriminator.state_dict(), disc_path)
-                    print('Checkpoint.')
-
-                # display sample images
-                save_sample(
-                    sample_real_img_lab,
-                    sample_fake_img_lab,
-                    os.path.join(args.save_path, 'sample_ep{}.png'.format(epoch))
-                )
+            #     if phase == 'train':
+            #         # adjust LR
+            #         global_step += 1
+            #         adjust_learning_rate(optimizers['gen'], global_step, base_lr=args.base_lr_gen,
+            #                              lr_decay_rate=args.lr_decay_rate, lr_decay_steps=args.lr_decay_steps)
+            #         adjust_learning_rate(optimizers['disc'], global_step, base_lr=args.base_lr_disc,
+            #                              lr_decay_rate=args.lr_decay_rate, lr_decay_steps=args.lr_decay_steps)
+            #
+            #         # reset generator gradients
+            #         optimizers['gen'].zero_grad()
+            #
+            #     # train / inference the generator
+            #     with torch.set_grad_enabled(phase == 'train'):
+            #         fake_img_ab = generator(img_l)
+            #         fake_img_lab = torch.cat([img_l, fake_img_ab], dim=1).to(device)
+            #
+            #         # adv loss
+            #         adv_loss = losses['disc'](discriminator(fake_img_lab), target_ones)
+            #         # l1 loss
+            #         l1_loss = losses['l1'](real_img_lab[:, 1:, :, :], fake_img_ab)
+            #         # full gen loss
+            #         full_gen_loss = (1.0 - args.l1_weight) * adv_loss + (args.l1_weight * l1_loss)
+            #
+            #         if phase == 'train':
+            #             full_gen_loss.backward()
+            #             optimizers['gen'].step()
+            #
+            #     epoch_gen_adv_loss += adv_loss.item()
+            #     epoch_gen_l1_loss += l1_loss.item()
+            #
+            #     if phase == 'train':
+            #         # reset discriminator gradients
+            #         optimizers['disc'].zero_grad()
+            #
+            #     # train / inference the discriminator
+            #     with torch.set_grad_enabled(phase == 'train'):
+            #         prediction_real = discriminator(real_img_lab)
+            #         prediction_fake = discriminator(fake_img_lab.detach())
+            #
+            #         loss_real = losses['disc'](prediction_real, target_ones * args.smoothing)
+            #         loss_fake = losses['disc'](prediction_fake, target_zeros)
+            #         full_disc_loss = loss_real + loss_fake
+            #
+            #         if phase == 'train':
+            #             full_disc_loss.backward()
+            #             optimizers['disc'].step()
+            #
+            #     epoch_disc_real_loss += loss_real.item()
+            #     epoch_disc_fake_loss += loss_fake.item()
+            #     epoch_disc_real_acc += np.mean(prediction_real.detach().cpu().numpy() > 0.5)
+            #     epoch_disc_fake_acc += np.mean(prediction_fake.detach().cpu().numpy() <= 0.5)
+            #
+            #     # save the first sample for later
+            #     if phase == 'test' and idx == 0:
+            #         sample_real_img_lab = real_img_lab
+            #         sample_fake_img_lab = fake_img_lab
+            #
+            # # display losses
+            # print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss,
+            #              epoch_disc_real_loss, epoch_disc_fake_loss,
+            #              epoch_disc_real_acc, epoch_disc_fake_acc,
+            #              len(data_loaders[phase]), args.l1_weight)
+            #
+            # # save after every nth epoch
+            # if phase == 'test':
+            #     if epoch % args.save_freq == 0 or epoch == args.max_epoch - 1:
+            #         gen_path = os.path.join(args.save_path, 'checkpoint_ep{}_gen.pt'.format(epoch))
+            #         disc_path = os.path.join(args.save_path, 'checkpoint_ep{}_disc.pt'.format(epoch))
+            #         torch.save(generator.state_dict(), gen_path)
+            #         torch.save(discriminator.state_dict(), disc_path)
+            #         print('Checkpoint.')
+            #
+            #     # display sample images
+            #     save_sample(
+            #         sample_real_img_lab,
+            #         sample_fake_img_lab,
+            #         os.path.join(args.save_path, 'sample_ep{}.png'.format(epoch))
+            #     )
 
 
 def get_arguments():
@@ -221,8 +251,9 @@ def get_arguments():
                         help='Download and extraction path for the dataset.')
     parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
     parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
-    parser.add_argument("--img_size", type = int, default = 128)
+    parser.add_argument("--img_size", type = int, default = 64)
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy')
+    parser.add_argument("--n_feats", type = int, default = 64)
     parser.add_argument("--color_feat_dim", type = int, default = 313)
     parser.add_argument("--spatial_feat_dim", type = int, default = 512)
     parser.add_argument("--mem_size", type = int, default = 120)
@@ -233,7 +264,7 @@ def get_arguments():
     parser.add_argument('--save_path', type=str, default='../checkpoints',
                         help='Save and load path for the network weights.')
     parser.add_argument('--save_freq', type=int, default=20, help='Save frequency during training.')
-    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--start_epoch', type=int, default=0,
                         help='If start_epoch>0, load previously saved weigth from the save_path.')
