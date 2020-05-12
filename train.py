@@ -50,7 +50,8 @@ def init_training(args):
     # losses
     losses = {
         'l1': torch.nn.L1Loss(reduction='mean'),
-        'disc': torch.nn.BCELoss(reduction='mean')
+        'disc': torch.nn.BCELoss(reduction='mean'),
+        'zhang': torch.nn.CrossEntropyLoss(reduction='none')
     }
 
     # make save dir, if it does not exists
@@ -128,6 +129,8 @@ def run_training(args):
                     adv_loss = losses['disc'](discriminator(fake_img_lab), target_ones)
                     # l1 loss
                     l1_loss = losses['l1'](real_img_lab[:, 1:, :, :], fake_img_ab)
+                    # zhang loss
+                    zhang_loss = losses['zhang'](outputs,targets).mean()
                     # full gen loss
                     full_gen_loss = (1.0 - args.l1_weight) * adv_loss + (args.l1_weight * l1_loss)
 

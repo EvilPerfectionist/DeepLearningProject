@@ -10,7 +10,7 @@ from colorthief import ColorThief
 
 
 class mydata(Dataset):
-    def __init__(self, img_path, img_size, km_file_path, color_info, transform = None, NN = 10.0, sigma = 5.0):
+    def __init__(self, img_path, img_size, km_file_path, color_info, transform = None, NN = 20.0, sigma = 5.0):
 
         self.img_path = img_path
         self.img_size = img_size
@@ -46,7 +46,10 @@ class mydata(Dataset):
 
         if self.color_info == 'dist':
             color_feat = encode_313bin(np.expand_dims(ab_image, axis = 0), self.nnenc)[0]
+            print(color_feat.shape)
+            print(color_feat[[0], [0], :])
             color_feat = np.mean(color_feat, axis = (0, 1))
+            print(color_feat.shape)
 
         elif self.color_info == 'RGB':
             color_thief = ColorThief(os.path.join(self.img_path, self.img[i]))
