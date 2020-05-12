@@ -6,7 +6,6 @@ import sys
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 from torch.utils.data import DataLoader
-from datasets import Cifar10Dataset, postprocess
 from dataset import mydata
 from networks import Generator, Discriminator, weights_init_normal
 from helpers import print_args, print_losses
@@ -51,7 +50,6 @@ def init_training(args):
     losses = {
         'l1': torch.nn.L1Loss(reduction='mean'),
         'disc': torch.nn.BCELoss(reduction='mean'),
-        'zhang': torch.nn.CrossEntropyLoss(reduction='none')
     }
 
     # make save dir, if it does not exists
@@ -98,16 +96,30 @@ def run_training(args):
             else:
                 print('VALIDATION:')
 
-            for idx, sample in enumerate(data_loaders[phase]):
-                print(sample.shape)
+            for idx, batch in enumerate(data_loaders[phase]):
+
+                res_input = batch['res_input'].to(device)
+                color_feat = batch['color_feat'].to(device)
+                img_l = (batch['l_channel'] / 100.0).to(device)
+                img_ab = (batch['ab_channel'] / 110.0).to(device)
+                real_img_lab = torch.cat([img_l, img_ab], dim=1).to(device)
 
                 # get data
-                img_l, real_img_lab = sample[:, 0:1, :, :].float().to(device), sample.float().to(device)
+                #img_l, real_img_lab = sample[:, 0:1, :, :].float().to(device), sample.float().to(device)
 
                 # generate targets
-                print(real_img_lab.size(0))
-                target_ones = torch.ones(real_img_lab.size(0), 1).to(device)
-                target_zeros = torch.zeros(real_img_lab.size(0), 1).to(device)
+                print(img_l.size(0))
+                target_ones = torch.ones(img_l.size(0), 1).to(device)
+                target_zeros = torch.zeros(img_l.size(0), 1).to(device)
+
+                ### 1) Train spatial feature extractor
+                # if phase == 'train':
+                #     res_feature = mem(res_input)
+                #     print(res_feature.shape)
+                #     loss = mem.unsupervised_loss(res_feature, color_feat, args.color_thres)
+                #     zero_grad(opts)
+                #     loss.backward()
+                #     m_opt.step()
 
                 if phase == 'train':
                     # adjust LR
@@ -129,8 +141,6 @@ def run_training(args):
                     adv_loss = losses['disc'](discriminator(fake_img_lab), target_ones)
                     # l1 loss
                     l1_loss = losses['l1'](real_img_lab[:, 1:, :, :], fake_img_ab)
-                    # zhang loss
-                    zhang_loss = losses['zhang'](outputs,targets).mean()
                     # full gen loss
                     full_gen_loss = (1.0 - args.l1_weight) * adv_loss + (args.l1_weight * l1_loss)
 

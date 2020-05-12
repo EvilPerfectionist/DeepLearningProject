@@ -1,8 +1,21 @@
 import os
 import cv2
 import numpy as np
-from datasets import postprocess
+from skimage.color import lab2rgb
 
+def postprocess(img_lab):
+    # transpose back
+    img_lab = img_lab.transpose((1, 2, 0))
+    # transform back
+    img_lab[:, :, 0] = img_lab[:, :, 0] * 100
+    img_lab[:, :, 1] = img_lab[:, :, 1] * 110
+    img_lab[:, :, 2] = img_lab[:, :, 2] * 110
+    # transform to bgr
+    img_rgb = lab2rgb(img_lab)
+    # to int8
+    img_rgb = (img_rgb * 255.0).astype(np.uint8)
+    img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+    return img_bgr
 
 def print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss, epoch_disc_real_loss, epoch_disc_fake_loss,
                  epoch_disc_real_acc, epoch_disc_fake_acc, data_loader_len, l1_weight):

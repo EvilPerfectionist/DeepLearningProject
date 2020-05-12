@@ -31,8 +31,6 @@ class mydata(Dataset):
 
         img_item = {}
         rgb_image = Image.open(os.path.join(self.img_path, self.img[i])).convert('RGB')
-        test_image = cv2.imread(os.path.join(self.img_path, self.img[i]))
-        test_image = cv2.resize(test_image, (self.img_size, self.img_size))
         w, h = rgb_image.size
         if w != h:
             min_val = min(w, h)
@@ -46,10 +44,7 @@ class mydata(Dataset):
 
         if self.color_info == 'dist':
             color_feat = encode_313bin(np.expand_dims(ab_image, axis = 0), self.nnenc)[0]
-            print(color_feat.shape)
-            print(color_feat[[0], [0], :])
             color_feat = np.mean(color_feat, axis = (0, 1))
-            print(color_feat.shape)
 
         elif self.color_info == 'RGB':
             color_thief = ColorThief(os.path.join(self.img_path, self.img[i]))
@@ -81,21 +76,4 @@ class mydata(Dataset):
         img_item['res_input'] = np.transpose(res_input, (2, 0, 1)).astype(np.float32)
         img_item['index'] = np.array(([index])).astype(np.float32)[0]
 
-
-        #return img_item
-        new_lab_image = preprocess(test_image)
-        #new_lab_image = np.transpose(new_lab_image, (2, 0, 1)).astype(np.float32)
-        return new_lab_image
-
-def preprocess(img_bgr):
-    # to 32bit img
-    img_bgr = img_bgr.astype(np.float32)/255.0
-    # transform to lab
-    img_lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
-    # normalize
-    img_lab[:, :, 0] = img_lab[:, :, 0]/50 - 1
-    img_lab[:, :, 1] = img_lab[:, :, 1]/127
-    img_lab[:, :, 2] = img_lab[:, :, 2]/127
-    # transpose
-    img_lab = img_lab.transpose((2, 0, 1))
-    return img_lab
+        return img_item
