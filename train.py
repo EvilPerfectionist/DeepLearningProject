@@ -7,10 +7,11 @@ sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 from torch.utils.data import DataLoader
 from dataset import mydata
+from memory_network import Memory_Network
 from networks import Generator, Discriminator, weights_init_normal
 from helpers import print_args, print_losses
 from helpers import save_sample, adjust_learning_rate
-
+from util import zero_grad
 
 def init_training(args):
     """Initialize the data loader, the networks, the optimizers and the loss functions."""
@@ -32,6 +33,7 @@ def init_training(args):
     print('Use GPU: {}'.format(str(device) != 'cpu'))
 
     # set up models
+    mem = Memory_Network(mem_size = args.mem_size, color_info = args.color_info, color_feat_dim = args.color_feat_dim, spatial_feat_dim = args.spatial_feat_dim, top_k = args.top_k, alpha = args.alpha).to(device)
     generator = Generator(args.gen_norm).to(device)
     discriminator = Discriminator(args.disc_norm).to(device)
 
@@ -43,7 +45,8 @@ def init_training(args):
     # adam optimizer with reduced momentum
     optimizers = {
         'gen': torch.optim.Adam(generator.parameters(), lr=args.base_lr_gen, betas=(0.5, 0.999)),
-        'disc': torch.optim.Adam(discriminator.parameters(), lr=args.base_lr_disc, betas=(0.5, 0.999))
+        'disc': torch.optim.Adam(discriminator.parameters(), lr=args.base_lr_disc, betas=(0.5, 0.999)),
+        'mem': torch.optim.Adam(mem.parameters(), lr = args.base_lr_mem)
     }
 
     # losses
@@ -69,12 +72,12 @@ def init_training(args):
             map_location=device
         ))
 
-    return global_step, device, data_loaders, generator, discriminator, optimizers, losses
+    return global_step, device, data_loaders, mem, generator, discriminator, optimizers, losses
 
 
 def run_training(args):
     """Initialize and run the training process."""
-    global_step, device, data_loaders, generator, discriminator, optimizers, losses = init_training(args)
+    global_step, device, data_loaders, mem, generator, discriminator, optimizers, losses = init_training(args)
     #  run training process
     for epoch in range(args.start_epoch, args.max_epoch):
         print('\n========== EPOCH {} =========='.format(epoch))
@@ -100,9 +103,11 @@ def run_training(args):
 
                 res_input = batch['res_input'].to(device)
                 color_feat = batch['color_feat'].to(device)
+                index = batch['index'].to(device)
                 img_l = (batch['l_channel'] / 100.0).to(device)
                 img_ab = (batch['ab_channel'] / 110.0).to(device)
                 real_img_lab = torch.cat([img_l, img_ab], dim=1).to(device)
+                print("res_input" + str(res_input.shape))
 
                 # get data
                 #img_l, real_img_lab = sample[:, 0:1, :, :].float().to(device), sample.float().to(device)
@@ -113,13 +118,18 @@ def run_training(args):
                 target_zeros = torch.zeros(img_l.size(0), 1).to(device)
 
                 ### 1) Train spatial feature extractor
-                # if phase == 'train':
-                #     res_feature = mem(res_input)
-                #     print(res_feature.shape)
-                #     loss = mem.unsupervised_loss(res_feature, color_feat, args.color_thres)
-                #     zero_grad(opts)
-                #     loss.backward()
-                #     m_opt.step()
+                if phase == 'train':
+                    res_feature = mem(res_input)
+                    print("res_feature" + str(res_feature.shape))
+                    mem_loss = mem.unsupervised_loss(res_feature, color_feat, args.color_thres)
+                    optimizers['mem'].zero_grad()
+                    mem_loss.backward()
+                    optimizers['mem'].step()
+
+                    ### 2) Update Memory module
+                    with torch.no_grad():
+                        res_feature = mem(res_input)
+                        mem.memory_update(res_feature, color_feat, args.color_thres, index)
 
                 if phase == 'train':
                     # adjust LR
@@ -210,9 +220,15 @@ def get_arguments():
     parser.add_argument('--data_path', type=str, default='../data',
                         help='Download and extraction path for the dataset.')
     parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
-    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
+    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
     parser.add_argument("--img_size", type = int, default = 128)
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy')
+    parser.add_argument("--color_feat_dim", type = int, default = 313)
+    parser.add_argument("--spatial_feat_dim", type = int, default = 512)
+    parser.add_argument("--mem_size", type = int, default = 120)
+    parser.add_argument("--alpha", type = float, default = 0.1)
+    parser.add_argument("--top_k", type = int, default = 30)
+    parser.add_argument("--color_thres", type = float, default = 0.7)
     parser.add_argument("--color_info", type = str, default = 'dist', help = 'option should be dist or RGB')
     parser.add_argument('--save_path', type=str, default='../checkpoints',
                         help='Save and load path for the network weights.')
@@ -226,6 +242,7 @@ def get_arguments():
     parser.add_argument('--l1_weight', type=float, default=0.99)
     parser.add_argument('--base_lr_gen', type=float, default=3e-4, help='Base learning rate for the generator.')
     parser.add_argument('--base_lr_disc', type=float, default=6e-5, help='Base learning rate for the discriminator.')
+    parser.add_argument("--base_lr_mem", type = float, default = 1e-4, help='Base learning rate for the Memory_Network.')
     parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='Learning rate decay rate for both networks.')
     parser.add_argument('--lr_decay_steps', type=float, default=6e4, help='Learning rate decay steps for both networks.')
     parser.add_argument('--gen_norm', type=str, default='batch', choices=['batch', 'instance'],

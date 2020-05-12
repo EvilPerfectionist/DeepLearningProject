@@ -5,6 +5,7 @@ import cv2
 from PIL import Image
 import numpy as np
 from skimage.color import rgb2lab, lab2rgb
+from skimage.transform import resize
 from util import NNEncode, encode_313bin
 from colorthief import ColorThief
 
@@ -66,7 +67,7 @@ class mydata(Dataset):
 
         res_input = lab2rgb(gray_image)
         res_input = (res_input - self.res_normalize_mean) / self.res_normalize_std
-        res_input = cv2.resize(res_input, dsize=(224, 224), interpolation=cv2.INTER_CUBIC)
+        res_input = resize(res_input, (224, 224))
 
         index = i + 0.0
 

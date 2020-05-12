@@ -46,7 +46,7 @@ class ConvBlock(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
-        print(x.shape)
+        #print(x.shape)
         x = self.model(x)
         return x
 
@@ -72,7 +72,7 @@ class TransConvBlock(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x, skip_input):
-        print(x.shape, skip_input.shape)
+        #print(x.shape, skip_input.shape)
         x = self.model(x)
         x = torch.cat((x, skip_input), 1)
         return x
@@ -104,7 +104,7 @@ class Generator(nn.Module):
         )
 
     def forward(self, x):
-        print(x.dtype)
+        #print(x.dtype)
         x = F.interpolate(x, size=(131, 131), mode='bilinear', align_corners=True)
         d1 = self.down1(x)
         d2 = self.down2(d1)
@@ -153,5 +153,5 @@ class Discriminator(nn.Module):
 
         x = self.final(d6)
         x = x.view(x.size()[0], -1)
-        print(x.shape)
+        #print(x.shape)
         return x
