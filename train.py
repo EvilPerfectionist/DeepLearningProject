@@ -38,6 +38,9 @@ def init_training(args):
     generator2 = unet_generator(1, 2, args.n_feats, args.color_feat_dim).to(device)
     discriminator2 = Discriminator2(3, args.color_feat_dim, args.img_size).to(device)
 
+    generator2 = generator2.train()
+    discriminator2 = discriminator2.train()
+
     # initialize weights
     if args.apply_weight_init:
         generator.apply(weights_init_normal)
@@ -123,44 +126,102 @@ def run_training(args):
 
                 ### 1) Train spatial feature extractor
                 if phase == 'train':
+                    optimizers['mem'].zero_grad()
+
+                with torch.set_grad_enabled(phase == 'train'):
                     res_feature = mem(res_input)
                     print("res_feature" + str(res_feature.shape))
-                    mem_loss = mem.unsupervised_loss(res_feature, color_feat, args.color_thres)
-                    optimizers['mem'].zero_grad()
-                    mem_loss.backward()
-                    optimizers['mem'].step()
 
-                    ### 2) Update Memory module
+                    if phase == 'train':
+                        mem_loss = mem.unsupervised_loss(res_feature, color_feat, args.color_thres)
+                        mem_loss.backward()
+                        optimizers['mem'].step()
+
+                ### 2) Update Memory module
+                if phase == 'train':
                     with torch.no_grad():
                         res_feature = mem(res_input)
                         mem.memory_update(res_feature, color_feat, args.color_thres, index)
 
+                if phase == 'test':
+                    top1_feature, _ = mem.topk_feature(res_feature, 1)
+                    color_feat = top1_feature[:, 0, :]
+
+                ### 3) Train Generator
+                if phase == 'train':
+                    optimizers['gen2'].zero_grad()
+
+                with torch.set_grad_enabled(phase == 'train'):
                     dis_color_feat = torch.cat([torch.unsqueeze(color_feat, 2) for _ in range(args.img_size)], dim = 2)
                     dis_color_feat = torch.cat([torch.unsqueeze(dis_color_feat, 3) for _ in range(args.img_size)], dim = 3)
                     fake_img_ab = generator2(img_l, color_feat)
-                    real = discriminator2(img_ab, img_l, dis_color_feat)
-                    d_loss_real = losses['disc'](real, target_ones)
-
                     fake = discriminator2(fake_img_ab, img_l, dis_color_feat)
-                    d_loss_fake = losses['disc'](fake, target_zeros)
-                    d_loss = d_loss_real + d_loss_fake
+                    fake_img_lab = torch.cat([img_l, fake_img_ab], dim=1).to(device)
 
-                    optimizers['disc2'].zero_grad()
-                    d_loss.backward()
-                    optimizers['disc2'].step()
-
-                    ### 4) Train Generator
-                    fake_img_ab = generator2(img_l, color_feat)
-                    fake = discriminator2(fake_img_ab, img_l, dis_color_feat)
                     g_loss_GAN = losses['disc'](fake, target_ones)
-
                     g_loss_smoothL1 = losses['smoothl1'](fake_img_ab, img_ab)
                     g_loss = g_loss_GAN + g_loss_smoothL1
 
-                    optimizers['gen2'].zero_grad()
-                    g_loss.backward()
-                    optimizers['gen2'].step()
+                    if phase == 'train':
+                        g_loss.backward()
+                        optimizers['gen2'].step()
 
+                epoch_gen_adv_loss += g_loss_GAN.item()
+                epoch_gen_l1_loss += g_loss_smoothL1.item()
+
+                ### 4) Train Discriminator
+                if phase == 'train':
+                    optimizers['disc2'].zero_grad()
+
+                with torch.set_grad_enabled(phase == 'train'):
+                    prediction_real = discriminator2(img_ab, img_l, dis_color_feat)
+                    prediction_fake = discriminator2(fake_img_ab.detach(), img_l, dis_color_feat)
+
+                    d_loss_real = losses['disc'](prediction_real, target_ones * args.smoothing)
+                    d_loss_fake = losses['disc'](prediction_fake, target_zeros)
+                    d_loss = d_loss_real + d_loss_fake
+
+                    if phase == 'train':
+                        d_loss.backward()
+                        optimizers['disc2'].step()
+
+                epoch_disc_real_loss += d_loss_real.item()
+                epoch_disc_fake_loss += d_loss_fake.item()
+                epoch_disc_real_acc += np.mean(prediction_real.detach().cpu().numpy() > 0.5)
+                epoch_disc_fake_acc += np.mean(prediction_fake.detach().cpu().numpy() <= 0.5)
+
+                # save the first sample for later
+                if phase == 'test' and idx == 0:
+                    sample_real_img_lab = real_img_lab
+                    sample_fake_img_lab = fake_img_lab
+
+                # display losses
+                print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss,
+                             epoch_disc_real_loss, epoch_disc_fake_loss,
+                             epoch_disc_real_acc, epoch_disc_fake_acc,
+                             len(data_loaders[phase]), args.l1_weight)
+
+                if phase == 'test':
+                    if epoch % args.save_freq == 0 or epoch == args.max_epoch - 1:
+                        gen_path = os.path.join(args.save_path, 'checkpoint_ep{}_gen.pt'.format(epoch))
+                        disc_path = os.path.join(args.save_path, 'checkpoint_ep{}_disc.pt'.format(epoch))
+                        mem_path = os.path.join(args.save_path, 'checkpoint_ep{}mem.pt'.format(epoch))
+                        torch.save(generator2.state_dict(), gen_path)
+                        torch.save(discriminator2.state_dict(), disc_path)
+                        torch.save({'mem_model' : mem.state_dict(),
+                                     'mem_key' : mem.spatial_key.cpu(),
+                                     'mem_value' : mem.color_value.cpu(),
+                                     'mem_age' : mem.age.cpu(),
+                                     'mem_index' : mem.top_index.cpu()}, mem_path)
+                        print('Checkpoint.')
+
+                    # display sample images
+                    save_sample(
+                        sample_real_img_lab,
+                        sample_fake_img_lab,
+                        args.img_size,
+                        os.path.join(args.save_path, 'sample_ep{}.png'.format(epoch))
+                    )
             #     if phase == 'train':
             #         # adjust LR
             #         global_step += 1
@@ -249,22 +310,23 @@ def get_arguments():
     )
     parser.add_argument('--data_path', type=str, default='../data',
                         help='Download and extraction path for the dataset.')
-    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
-    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/PussnToots/')
-    parser.add_argument("--img_size", type = int, default = 64)
+    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
+    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
+    parser.add_argument("--img_size", type = int, default = 128)
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy')
     parser.add_argument("--n_feats", type = int, default = 64)
     parser.add_argument("--color_feat_dim", type = int, default = 313)
     parser.add_argument("--spatial_feat_dim", type = int, default = 512)
-    parser.add_argument("--mem_size", type = int, default = 120)
+    parser.add_argument("--mem_size", type = int, default = 360)
     parser.add_argument("--alpha", type = float, default = 0.1)
-    parser.add_argument("--top_k", type = int, default = 30)
+    parser.add_argument("--top_k", type = int, default = 256)
     parser.add_argument("--color_thres", type = float, default = 0.7)
+    parser.add_argument("--test_freq", type = int, default = 2)
     parser.add_argument("--color_info", type = str, default = 'dist', help = 'option should be dist or RGB')
     parser.add_argument('--save_path', type=str, default='../checkpoints',
                         help='Save and load path for the network weights.')
-    parser.add_argument('--save_freq', type=int, default=20, help='Save frequency during training.')
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--save_freq', type=int, default=50, help='Save frequency during training.')
+    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--start_epoch', type=int, default=0,
                         help='If start_epoch>0, load previously saved weigth from the save_path.')
@@ -284,6 +346,63 @@ def get_arguments():
                         help='If set to 1, applies the "weights_init_normal" function from networks.py.')
     return parser.parse_args()
 
+def test_operation(args, generator, mem, te_dataloader, device, e = -1):
+
+    count = 0
+    result_path = os.path.join(args.result_path, args.data_name)
+    if not os.path.isdir(result_path):
+        os.mkdir(result_path)
+
+    with torch.no_grad():
+        for i, batch in enumerate(te_dataloader):
+            res_input = batch['res_input'].to(device)
+            color_feat = batch['color_feat'].to(device)
+            l_channel = (batch['l_channel'] / 100.0).to(device)
+            ab_channel = (batch['ab_channel'] / 110.0).to(device)
+
+            bs = res_input.size()[0]
+
+            query = mem(res_input)
+            top1_feature, _ = mem.topk_feature(query, 1)
+            top1_feature = top1_feature[:, 0, :]
+            result_ab_channel = generator(l_channel, top1_feature)
+
+            real_image = torch.cat([l_channel * 100, ab_channel * 110], dim = 1).cpu().numpy()
+            fake_image = torch.cat([l_channel * 100, result_ab_channel * 110], dim = 1).cpu().numpy()
+            gray_image = torch.cat([l_channel * 100, torch.zeros((bs, 2, args.img_size, args.img_size)).to(device)], dim = 1).cpu().numpy()
+
+            all_img = np.concatenate([real_image, fake_image, gray_image], axis = 2)
+            all_img = np.transpose(all_img, (0, 2, 3, 1))
+            rgb_imgs = [lab2rgb(ele) for ele in all_img]
+            rgb_imgs = np.array((rgb_imgs))
+            rgb_imgs = (rgb_imgs * 255.0).astype(np.uint8)
+
+            for t in range(len(rgb_imgs)):
+
+                if e > -1 :
+                    img = Image.fromarray(rgb_imgs[t])
+                    name = '%03d_%04d_result.png'%(e, count)
+                    img.save(os.path.join(result_path, name))
+
+                else:
+                    name = '%04d_%s.png'
+                    img = rgb_imgs[t]
+                    h, w, c = img.shape
+                    stride = h // 3
+                    original = img[:stride, :, :]
+                    original = Image.fromarray(original)
+                    original.save(os.path.join(result_path, name%(count, 'GT')))
+
+                    result = img[stride : 2*stride, :, :]
+                    result = Image.fromarray(result)
+                    result.save(os.path.join(result_path, name%(count, 'result')))
+
+                    if not args.test_only:
+                        gray_img = img[2*stride :, :, :]
+                        gray_img = Image.fromarray(gray_img)
+                        gray_img.save(os.path.join(result_path, name%(count, 'gray')))
+
+                count = count + 1
 
 if __name__ == '__main__':
     args = get_arguments()

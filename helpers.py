@@ -37,13 +37,13 @@ def print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss, epoch_disc_real_loss, ep
     ))
 
 
-def save_sample(real_imgs_lab, fake_imgs_lab, save_path, plot_size=20, scale=2.2, show=False):
+def save_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=20, scale=2.2, show=False):
     """Create a grid of ground truth, grayscale and colorized images and save + display it to the user."""
     batch_size = real_imgs_lab.size()[0]
     plot_size = min(plot_size, batch_size)
 
     # create white canvas
-    canvas = np.ones((3*128 + 4*6, plot_size*128 + (plot_size+1)*6, 3), dtype=np.uint8)*255
+    canvas = np.ones((3*img_size + 4*6, plot_size*img_size + (plot_size+1)*6, 3), dtype=np.uint8)*255
 
     real_imgs_lab = real_imgs_lab.cpu().numpy()
     fake_imgs_lab = fake_imgs_lab.cpu().numpy()
@@ -54,10 +54,10 @@ def save_sample(real_imgs_lab, fake_imgs_lab, save_path, plot_size=20, scale=2.2
         fake_bgr = postprocess(fake_imgs_lab[i])
         grayscale = np.expand_dims(cv2.cvtColor(real_bgr.astype(np.float32), cv2.COLOR_BGR2GRAY), 2)
         # paint
-        x = (i+1)*6+i*128
-        canvas[6:134, x:x+128, :] = real_bgr
-        canvas[140:268, x:x+128, :] = np.repeat(grayscale, 3, axis=2)
-        canvas[274:402, x:x+128, :] = fake_bgr
+        x = (i+1)*6+i*img_size
+        canvas[6:6+img_size, x:x+img_size, :] = real_bgr
+        canvas[12+img_size:12+2*img_size, x:x+img_size, :] = np.repeat(grayscale, 3, axis=2)
+        canvas[18+2*img_size:18+3*img_size, x:x+img_size, :] = fake_bgr
 
     # scale
     canvas = cv2.resize(canvas, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
@@ -70,7 +70,7 @@ def save_sample(real_imgs_lab, fake_imgs_lab, save_path, plot_size=20, scale=2.2
         cv2.waitKey(10000)
 
 
-def save_test_sample(real_imgs_lab, fake_imgs_lab1, fake_imgs_lab2, save_path, plot_size=14, scale=1.6, show=False):
+def save_test_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=14, scale=1.6, show=False):
     """
     Create a grid of ground truth,
     grayscale and 2 colorized images (from different sources) and save + display it to the user.
@@ -79,24 +79,21 @@ def save_test_sample(real_imgs_lab, fake_imgs_lab1, fake_imgs_lab2, save_path, p
     plot_size = min(plot_size, batch_size)
 
     # create white canvas
-    canvas = np.ones((plot_size*32 + (plot_size+1)*6, 4*32 + 5*8, 3), dtype=np.uint8)*255
+    canvas = np.ones((plot_size*img_size + (plot_size+1)*6, 3*img_size + 5*8, 3), dtype=np.uint8)*255
 
     real_imgs_lab = real_imgs_lab.cpu().numpy()
-    fake_imgs_lab1 = fake_imgs_lab1.cpu().numpy()
-    fake_imgs_lab2 = fake_imgs_lab2.cpu().numpy()
+    fake_imgs_lab = fake_imgs_lab.cpu().numpy()
 
     for i in range(0, plot_size):
         # post-process real and fake samples
         real_bgr = postprocess(real_imgs_lab[i])
-        fake_bgr1 = postprocess(fake_imgs_lab1[i])
-        fake_bgr2 = postprocess(fake_imgs_lab2[i])
+        fake_bgr = postprocess(fake_imgs_lab[i])
         grayscale = np.expand_dims(cv2.cvtColor(real_bgr.astype(np.float32), cv2.COLOR_BGR2GRAY), 2)
         # paint
-        x = (i+1)*6+i*32
-        canvas[x:x+32, 8:40, :] = real_bgr
-        canvas[x:x+32, 48:80, :] = np.repeat(grayscale, 3, axis=2)
-        canvas[x:x+32, 88:120, :] = fake_bgr1
-        canvas[x:x+32, 128:160, :] = fake_bgr2
+        x = (i+1)*6+i*img_size
+        canvas[x:x+img_size, 8:8 + img_size, :] = real_bgr
+        canvas[x:x+img_size, 16 + img_size:16 + 2 * img_size, :] = np.repeat(grayscale, 3, axis=2)
+        canvas[x:x+img_size, 24 + 2 * img_size:24 + 3 * img_size, :] = fake_bgr
 
     # scale
     canvas = cv2.resize(canvas, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
