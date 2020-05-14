@@ -205,7 +205,7 @@ def run_training(args):
                     if epoch % args.save_freq == 0 or epoch == args.max_epoch - 1:
                         gen_path = os.path.join(args.save_path, 'checkpoint_ep{}_gen.pt'.format(epoch))
                         disc_path = os.path.join(args.save_path, 'checkpoint_ep{}_disc.pt'.format(epoch))
-                        mem_path = os.path.join(args.save_path, 'checkpoint_ep{}mem.pt'.format(epoch))
+                        mem_path = os.path.join(args.save_path, 'checkpoint_ep{}_mem.pt'.format(epoch))
                         torch.save(generator2.state_dict(), gen_path)
                         torch.save(discriminator2.state_dict(), disc_path)
                         torch.save({'mem_model' : mem.state_dict(),
@@ -310,8 +310,8 @@ def get_arguments():
     )
     parser.add_argument('--data_path', type=str, default='../data',
                         help='Download and extraction path for the dataset.')
-    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
-    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/DogTrouble/')
+    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/DogTrouble/')
+    parser.add_argument("--test_data_path", type = str, default = '/home/leon/DeepLearning/Project/DogTrouble/')
     parser.add_argument("--img_size", type = int, default = 128)
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy')
     parser.add_argument("--n_feats", type = int, default = 64)
