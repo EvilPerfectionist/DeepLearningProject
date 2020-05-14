@@ -8,7 +8,7 @@ from skimage.color import rgb2lab, deltaE_ciede2000
 
 class Memory_Network(nn.Module):
 
-    def __init__(self, mem_size, color_info, color_feat_dim = 313, spatial_feat_dim = 512, top_k = 256, alpha = 0.1, age_noise = 4.0):
+    def __init__(self, mem_size, color_feat_dim = 313, spatial_feat_dim = 512, top_k = 256, alpha = 0.1, age_noise = 4.0):
 
         super(Memory_Network, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -20,15 +20,9 @@ class Memory_Network(nn.Module):
         self.alpha = alpha
         self.age_noise = age_noise
         self.top_k = top_k
-        self.color_info = color_info
 
-        if self.color_info == 'dist':
-            ## Each color_value is probability distribution
-            self.color_value = F.normalize(random_uniform((self.mem_size, self.color_feat_dim), 0, 0.01), p = 1, dim=1).to(self.device)
-
-        elif self.color_info == 'RGB':
-            ## Each color_value is normalized RGB value [0, 1]
-            self.color_value = random_uniform((self.mem_size, self.color_feat_dim), 0, 1).to(self.device)
+        ## Each color_value is probability distribution
+        self.color_value = F.normalize(random_uniform((self.mem_size, self.color_feat_dim), 0, 0.01), p = 1, dim=1).to(self.device)
 
         self.spatial_key = F.normalize(random_uniform((self.mem_size, self.spatial_feat_dim), -0.01, 0.01), dim=1).to(self.device)
         self.age = torch.zeros(self.mem_size).to(self.device)
@@ -62,11 +56,7 @@ class Memory_Network(nn.Module):
         color_feat_expand = torch.unsqueeze(color_feat, 2)
         color_feat_expand = torch.cat([color_feat_expand for _ in range(self.top_k)], dim = 2)
 
-        if self.color_info == 'dist':
-            color_similarity = self.KL_divergence(color_value_expand, color_feat_expand, 1)
-
-        elif self.color_info == 'RGB':
-            color_similarity = self.CIEDE2000(color_value_expand.cpu().numpy(), color_feat_expand.cpu().numpy())
+        color_similarity = self.KL_divergence(color_value_expand, color_feat_expand, 1)
 
         loss_mask = color_similarity < color_thres
         loss_mask = loss_mask.float()
@@ -87,17 +77,7 @@ class Memory_Network(nn.Module):
         top1_feature = self.spatial_key[top1_index]
         top1_color_value = self.color_value[top1_index]
 
-        if self.color_info == 'dist':
-            color_similarity = self.KL_divergence(top1_color_value, color_feat, 1)
-
-        elif self.color_info == 'RGB':
-
-            top1_color_value = top1_color_value.cpu().numpy()
-            top1_color_value = np.expand_dims(top1_color_value, 2)
-            color_feat_cpu = color_feat.cpu().numpy()
-            color_feat_cpu = np.expand_dims(color_feat_cpu, 2)
-
-            color_similarity = torch.squeeze(self.CIEDE2000(top1_color_value, color_feat_cpu))
+        color_similarity = self.KL_divergence(top1_color_value, color_feat, 1)
 
         memory_mask = color_similarity < color_thres
         self.age = self.age + 1.0
@@ -142,27 +122,6 @@ class Memory_Network(nn.Module):
         kl_div = torch.sum(kl_div, dim = dim)
 
         return kl_div
-
-    def CIEDE2000(self, color_value_expand, color_feat_expand):
-
-        bs, color_dim, num_top_k = color_value_expand.shape
-
-        color_value_expand = np.transpose(color_value_expand, (0, 2, 1))
-        color_feat_expand = np.transpose(color_feat_expand, (0, 2, 1))
-
-        color_value_expand = np.reshape(color_value_expand, (bs, num_top_k, 3, 10))
-        color_feat_expand = np.reshape(color_feat_expand, (bs, num_top_k, 3, 10))
-
-        color_value_expand = np.transpose(color_value_expand, (0, 1, 3, 2))
-        color_feat_expand = np.transpose(color_feat_expand, (0, 1, 3, 2))
-
-        color_sim = [deltaE_ciede2000(rgb2lab(color_value_expand[i]), rgb2lab(color_feat_expand[i])) for i in range(bs)]
-        color_sim = np.mean(np.array(color_sim), axis = 2)
-
-        color_sim = torch.tensor(color_sim).to(self.device)
-        color_sim.requires_grad = False
-
-        return color_sim
 
 
     def _unsupervised_loss(self, pos_score, neg_score):

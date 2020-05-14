@@ -7,11 +7,9 @@ import numpy as np
 from skimage.color import rgb2lab, lab2rgb
 from skimage.transform import resize
 from util import NNEncode, encode_313bin
-from colorthief import ColorThief
 
-
-class mydata(Dataset):
-    def __init__(self, img_path, img_size, km_file_path, color_info, transform = None, NN = 20.0, sigma = 5.0):
+class customed_dataset(Dataset):
+    def __init__(self, img_path, img_size, km_file_path, transform = None, NN = 20.0, sigma = 5.0):
 
         self.img_path = img_path
         self.img_size = img_size
@@ -20,9 +18,7 @@ class mydata(Dataset):
         self.res_normalize_mean = [0.485, 0.456, 0.406]
         self.res_normalize_std = [0.229, 0.224, 0.225]
         self.transform = transform
-        self.color_info = color_info
-        if self.color_info == 'dist':
-            self.nnenc = NNEncode(NN, sigma, km_filepath = km_file_path)
+        self.nnenc = NNEncode(NN, sigma, km_filepath = km_file_path)
 
     def __len__(self):
 
@@ -43,22 +39,8 @@ class mydata(Dataset):
         l_image = lab_image[:,:,:1]
         ab_image = lab_image[:,:,1:]
 
-        if self.color_info == 'dist':
-            color_feat = encode_313bin(np.expand_dims(ab_image, axis = 0), self.nnenc)[0]
-            color_feat = np.mean(color_feat, axis = (0, 1))
-
-        elif self.color_info == 'RGB':
-            color_thief = ColorThief(os.path.join(self.img_path, self.img[i]))
-
-            ## color_feat shape : (10, 3)
-            color_feat = np.array(color_thief.get_palette(11))
-
-            ## color_feat shape : (3, 10)
-            color_feat = np.transpose(color_feat)
-
-            ## color_feat shape : (30)
-            color_feat = np.reshape(color_feat, (30)) / 255.0
-            del color_thief
+        color_feat = encode_313bin(np.expand_dims(ab_image, axis = 0), self.nnenc)[0]
+        color_feat = np.mean(color_feat, axis = (0, 1))
 
         gray_image = [lab_image[:,:,:1]]
         h, w, c = lab_image.shape
