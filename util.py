@@ -1,8 +1,6 @@
 import sklearn.neighbors as nn
 import numpy as np
 import os
-
-
 ##### For making color feature using 313bins
 def unflatten_2d_array(pts_flt,pts_nd,axis=1,squeeze=False):
     ''' Unflatten a 2d array with a certain axis
@@ -60,7 +58,7 @@ def na(): # shorthand for new axis
 class NNEncode():
     ''' Encode points using NN search and Gaussian kernel '''
     def __init__(self,NN,sigma,km_filepath='',cc=-1):
-        
+
         self.cc = np.load(km_filepath)
         '''
         if(check_value(cc,-1)):
@@ -126,9 +124,3 @@ def encode_313bin(data_ab_ss, nn_enc):
 
     gt_ab_313 = np.transpose(gt_ab_313, (0, 2, 3, 1))
     return gt_ab_313
-
-
-def zero_grad(opts):
-    for ele in opts:
-        ele.zero_grad()
-

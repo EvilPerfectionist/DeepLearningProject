@@ -1,10 +1,28 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from ResNet import ResNet18
+from torchvision import models
 import numpy as np
 from skimage.color import rgb2lab
 
+class ResNet18(nn.Module):
+    def __init__(self, pre_trained = True, require_grad = False):
+        super(ResNet18, self).__init__()
+        self.model = models.resnet18(pretrained = True)
+
+        self.body = [layers for layers in self.model.children()]
+        self.body.pop(-1)
+
+        self.body = nn.Sequential(*self.body)
+
+        if not require_grad:
+            for parameter in self.parameters():
+                parameter.requires_grad = False
+
+    def forward(self, x):
+        x = self.body(x)
+        x = x.view(-1, 512)
+        return x
 
 class Memory_Network(nn.Module):
 
@@ -68,7 +86,6 @@ class Memory_Network(nn.Module):
 
         return loss
 
-
     def memory_update(self, query, color_feat, color_thres, top_index):
 
         cosine_score = torch.matmul(query, torch.t(self.spatial_key))
@@ -123,14 +140,12 @@ class Memory_Network(nn.Module):
 
         return kl_div
 
-
     def _unsupervised_loss(self, pos_score, neg_score):
 
         hinge = torch.clamp(neg_score - pos_score + self.alpha, min = 0.0)
         loss = torch.mean(hinge)
 
         return loss
-
 
 def random_uniform(shape, low, high):
     x = torch.rand(*shape)

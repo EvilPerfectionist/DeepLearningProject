@@ -53,8 +53,8 @@ class customed_dataset(Dataset):
 
         index = i + 0.0
 
-        img_item['l_channel'] = np.transpose(l_image, (2, 0, 1)).astype(np.float32)
-        img_item['ab_channel'] = np.transpose(ab_image, (2, 0, 1)).astype(np.float32)
+        img_item['img_l'] = np.transpose(l_image, (2, 0, 1)).astype(np.float32)
+        img_item['img_ab'] = np.transpose(ab_image, (2, 0, 1)).astype(np.float32)
         img_item['color_feat'] = color_feat.astype(np.float32)
         img_item['res_input'] = np.transpose(res_input, (2, 0, 1)).astype(np.float32)
         img_item['index'] = np.array(([index])).astype(np.float32)[0]

@@ -8,10 +8,9 @@ import cv2
 from torch.utils.data import DataLoader
 from dataset import customed_dataset
 from memory_network import Memory_Network
-from networks import unet_generator, Discriminator2
+from networks import Generator, Discriminator
 from helpers import print_args, print_losses
 from helpers import save_sample, adjust_learning_rate
-from util import zero_grad
 
 def init_training(args):
     """Initialize the data loader, the networks, the optimizers and the loss functions."""
@@ -32,20 +31,27 @@ def init_training(args):
     print('Use GPU: {}'.format(str(device) != 'cpu'))
 
     # set up models
-    mem = Memory_Network(mem_size = args.mem_size, color_feat_dim = args.color_feat_dim, spatial_feat_dim = args.spatial_feat_dim, top_k = args.top_k, alpha = args.alpha).to(device)
-    generator = unet_generator(args.color_feat_dim, args.img_size).to(device)
-    discriminator = Discriminator2(args.color_feat_dim, args.img_size).to(device)
+    if args.use_memory == True:
+        mem = Memory_Network(mem_size = args.mem_size, color_feat_dim = args.color_feat_dim, spatial_feat_dim = args.spatial_feat_dim, top_k = args.top_k, alpha = args.alpha).to(device)
+    generator = Generator(args.color_feat_dim, args.img_size, args.gen_norm).to(device)
+    discriminator = Discriminator(args.color_feat_dim, args.img_size, args.dis_norm).to(device)
 
     # set networks as training mode
     generator = generator.train()
     discriminator = discriminator.train()
 
     # adam optimizer
-    optimizers = {
-        'gen': torch.optim.Adam(generator.parameters(), lr=args.base_lr),
-        'disc': torch.optim.Adam(discriminator.parameters(), lr=args.base_lr),
-        'mem': torch.optim.Adam(mem.parameters(), lr = args.base_lr)
-    }
+    if args.use_memory == True:
+        optimizers = {
+            'gen': torch.optim.Adam(generator.parameters(), lr=args.base_lr),
+            'disc': torch.optim.Adam(discriminator.parameters(), lr=args.base_lr),
+            'mem': torch.optim.Adam(mem.parameters(), lr = args.base_lr)
+        }
+    else:
+        optimizers = {
+            'gen': torch.optim.Adam(generator.parameters(), lr=args.base_lr),
+            'disc': torch.optim.Adam(discriminator.parameters(), lr=args.base_lr),
+        }
 
     # losses
     losses = {
@@ -71,12 +77,17 @@ def init_training(args):
             map_location=device
         ))
 
-    return global_step, device, data_loaders, mem, generator, discriminator, optimizers, losses
-
+    if args.use_memory == True:
+        return global_step, device, data_loaders, mem, generator, discriminator, optimizers, losses
+    else:
+        return global_step, device, data_loaders, generator, discriminator, optimizers, losses
 
 def train_and_validation(args):
     """Initialize generator, discriminator, memory_network and run the train and validation process."""
-    global_step, device, data_loaders, mem, generator, discriminator, optimizers, losses = init_training(args)
+    if args.use_memory == True:
+        global_step, device, data_loaders, mem, generator, discriminator, optimizers, losses = init_training(args)
+    else:
+        global_step, device, data_loaders, generator, discriminator, optimizers, losses = init_training(args)
     #  run training process
     for epoch in range(args.start_epoch, args.end_epoch):
         print('\n========== EPOCH {} =========='.format(epoch))
@@ -103,38 +114,37 @@ def train_and_validation(args):
                 res_input = batch['res_input'].to(device)
                 color_feat = batch['color_feat'].to(device)
                 index = batch['index'].to(device)
-                img_l = (batch['l_channel'] / 100.0).to(device)
-                img_ab = (batch['ab_channel'] / 110.0).to(device)
+                img_l = (batch['img_l'] / 100.0).to(device)
+                img_ab = (batch['img_ab'] / 110.0).to(device)
                 real_img_lab = torch.cat([img_l, img_ab], dim=1).to(device)
-                print("res_input" + str(res_input.shape))
 
                 # generate targets
-                print(img_l.size(0))
                 target_ones = torch.ones(img_l.size(0), 1).to(device)
                 target_zeros = torch.zeros(img_l.size(0), 1).to(device)
 
-                ### 1) Train spatial feature extractor
-                if phase == 'train':
-                    optimizers['mem'].zero_grad()
-
-                with torch.set_grad_enabled(phase == 'train'):
-                    res_feature = mem(res_input)
-                    print("res_feature" + str(res_feature.shape))
-
+                if args.use_memory == True:
+                    ### 1) Train spatial feature extractor
                     if phase == 'train':
-                        mem_loss = mem.unsupervised_loss(res_feature, color_feat, args.color_thres)
-                        mem_loss.backward()
-                        optimizers['mem'].step()
+                        optimizers['mem'].zero_grad()
 
-                ### 2) Update Memory module
-                if phase == 'train':
-                    with torch.no_grad():
+                    with torch.set_grad_enabled(phase == 'train'):
                         res_feature = mem(res_input)
-                        mem.memory_update(res_feature, color_feat, args.color_thres, index)
+                        print("res_feature" + str(res_feature.shape))
 
-                if phase == 'val':
-                    top1_feature, _ = mem.topk_feature(res_feature, 1)
-                    color_feat = top1_feature[:, 0, :]
+                        if phase == 'train':
+                            mem_loss = mem.unsupervised_loss(res_feature, color_feat, args.color_thres)
+                            mem_loss.backward()
+                            optimizers['mem'].step()
+
+                    ### 2) Update Memory module
+                    if phase == 'train':
+                        with torch.no_grad():
+                            res_feature = mem(res_input)
+                            mem.memory_update(res_feature, color_feat, args.color_thres, index)
+
+                    if phase == 'val':
+                        top1_feature, _ = mem.topk_feature(res_feature, 1)
+                        color_feat = top1_feature[:, 0, :]
 
                 ### 3) Train Generator
                 if phase == 'train':
@@ -184,33 +194,35 @@ def train_and_validation(args):
                     sample_real_img_lab = real_img_lab
                     sample_fake_img_lab = fake_img_lab
 
-                # display losses
-                print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss,
-                             epoch_disc_real_loss, epoch_disc_fake_loss,
-                             epoch_disc_real_acc, epoch_disc_fake_acc,
-                             len(data_loaders[phase]), 1.0)
+            # display losses
+            print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss,
+                         epoch_disc_real_loss, epoch_disc_fake_loss,
+                         epoch_disc_real_acc, epoch_disc_fake_acc,
+                         len(data_loaders[phase]), 1.0)
 
-                if phase == 'val':
-                    if epoch % args.save_freq == 0 or epoch == args.end_epoch - 1:
-                        gen_path = os.path.join(args.save_path, 'checkpoint_ep{}_gen.pt'.format(epoch))
-                        disc_path = os.path.join(args.save_path, 'checkpoint_ep{}_disc.pt'.format(epoch))
+            if phase == 'val':
+                if epoch % args.save_freq == 0 or epoch == args.end_epoch - 1:
+                    gen_path = os.path.join(args.save_path, 'checkpoint_ep{}_gen.pt'.format(epoch))
+                    disc_path = os.path.join(args.save_path, 'checkpoint_ep{}_disc.pt'.format(epoch))
+                    if args.use_memory == True:
                         mem_path = os.path.join(args.save_path, 'checkpoint_ep{}_mem.pt'.format(epoch))
-                        torch.save(generator.state_dict(), gen_path)
-                        torch.save(discriminator.state_dict(), disc_path)
+                    torch.save(generator.state_dict(), gen_path)
+                    torch.save(discriminator.state_dict(), disc_path)
+                    if args.use_memory == True:
                         torch.save({'mem_model' : mem.state_dict(),
                                      'mem_key' : mem.spatial_key.cpu(),
                                      'mem_value' : mem.color_value.cpu(),
                                      'mem_age' : mem.age.cpu(),
                                      'mem_index' : mem.top_index.cpu()}, mem_path)
-                        print('Checkpoint.')
+                    print('Checkpoint.')
 
-                    # display sample images
-                    save_sample(
-                        sample_real_img_lab,
-                        sample_fake_img_lab,
-                        args.img_size,
-                        os.path.join(args.save_path, 'sample_ep{}.png'.format(epoch))
-                    )
+                # display sample images
+                save_sample(
+                    sample_real_img_lab,
+                    sample_fake_img_lab,
+                    args.img_size,
+                    os.path.join(args.save_path, 'sample_ep{}.png'.format(epoch))
+                )
 
 def define_arguments():
     """Get command line arguments."""
@@ -227,11 +239,14 @@ def define_arguments():
     parser.add_argument('--batch_size', type = int, default = 8)
     parser.add_argument('--num_workers', type = int, default = 4)
     # Arguments for initializing networks
+    parser.add_argument('--use_memory', type = bool, default = False, help = 'Use memory or not')
     parser.add_argument("--mem_size", type = int, default = 360, help = 'The number of color and spatial features that will be stored in the memory_network respectively')
     parser.add_argument("--color_feat_dim", type = int, default = 313, help = 'Dimension of color feaures extracted from an image')
     parser.add_argument("--spatial_feat_dim", type = int, default = 512, help = 'Dimension of spatial feaures extracted from an image')
     parser.add_argument("--top_k", type = int, default = 256, help = 'Select the top k spatial feaures in memory_network which relate to input query')
     parser.add_argument("--alpha", type = float, default = 0.1, help = 'Bias term in the unsupervised loss')
+    parser.add_argument('--gen_norm', type = str, default = 'batch', choices = ['batch', 'adain'], help = 'Defines the type of normalization used in the generator.')
+    parser.add_argument('--dis_norm', type = str, default = None, choices=['None', 'adain'], help = 'Defines the type of normalization used in the discriminator.')
     # Arguments for setting the optimizers
     parser.add_argument("--base_lr", type = float, default = 1e-4, help = 'Base learning rate for the networks.')
     #Arguments for saving network parameters and real and fake images

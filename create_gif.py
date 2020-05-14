@@ -161,8 +161,8 @@ def generate_gif(args, generator, mem, device, dataloader, count):
         res_input = batch['res_input'].to(device)
         color_feat = batch['color_feat'].to(device)
         index = batch['index'].to(device)
-        img_l = (batch['l_channel'] / 100.0).to(device)
-        img_ab = (batch['ab_channel'] / 110.0).to(device)
+        img_l = (batch['img_l'] / 100.0).to(device)
+        img_ab = (batch['img_ab'] / 110.0).to(device)
 
         query = mem(res_input)
         top1_feature, _ = mem.topk_feature(query, 1)
