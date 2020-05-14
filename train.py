@@ -33,8 +33,8 @@ def init_training(args):
 
     # set up models
     mem = Memory_Network(mem_size = args.mem_size, color_feat_dim = args.color_feat_dim, spatial_feat_dim = args.spatial_feat_dim, top_k = args.top_k, alpha = args.alpha).to(device)
-    generator = unet_generator(args.input_dim, args.output_dim, args.num_feats, args.color_feat_dim).to(device)
-    discriminator = Discriminator2(args.input_dim + args.output_dim, args.color_feat_dim, args.img_size).to(device)
+    generator = unet_generator(args.color_feat_dim, args.img_size).to(device)
+    discriminator = Discriminator2(args.color_feat_dim, args.img_size).to(device)
 
     # set networks as training mode
     generator = generator.train()
@@ -232,9 +232,6 @@ def define_arguments():
     parser.add_argument("--spatial_feat_dim", type = int, default = 512, help = 'Dimension of spatial feaures extracted from an image')
     parser.add_argument("--top_k", type = int, default = 256, help = 'Select the top k spatial feaures in memory_network which relate to input query')
     parser.add_argument("--alpha", type = float, default = 0.1, help = 'Bias term in the unsupervised loss')
-    parser.add_argument("--input_dim", type = int, default = 1)
-    parser.add_argument("--output_dim", type = int, default = 2)
-    parser.add_argument("--num_feats", type = int, default = 64)
     # Arguments for setting the optimizers
     parser.add_argument("--base_lr", type = float, default = 1e-4, help = 'Base learning rate for the networks.')
     #Arguments for saving network parameters and real and fake images

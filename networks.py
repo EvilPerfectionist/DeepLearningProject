@@ -16,11 +16,9 @@ class ConvBlock(nn.Module):
         elif normalize == 'instance':
             # + instancenorm
             model.append(nn.InstanceNorm2d(out_size))
-        elif normalize == 'spectral':
-            # conv + spectralnorm
-            model = [
-                SpectralNorm(nn.Conv2d(in_size, out_size, kernel_size=kernel_size, stride=stride, padding=padding))
-            ]
+        elif normalize == 'adain':
+            # + Adaptive Instance Normalization
+            model.append(AdaptiveInstanceNorm2d(out_size))
 
         model.append(activation_fn)
 
@@ -30,7 +28,7 @@ class ConvBlock(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
-        #print(x.shape)
+        print("encode" + str(x.shape))
         x = self.model(x)
         return x
 
@@ -46,6 +44,9 @@ class TransConvBlock(nn.Module):
         elif normalize == 'instance':
             # add instance norm
             model.append(nn.InstanceNorm2d(out_size))
+        elif normalize == 'adain':
+            # + Adaptive Instance Normalization
+            model.append(AdaptiveInstanceNorm2d(out_size))
 
         model.append(activation_fn)
 
@@ -63,47 +64,84 @@ class TransConvBlock(nn.Module):
 class Generator(nn.Module):
     """Generator architecture."""
 
-    def __init__(self, normalization_type=None):
+    def __init__(self, normalization_type=None, conv_dim = 64, repeat_num = 2):
         super(Generator, self).__init__()
         self.norm = normalization_type
 
-        self.down1 = ConvBlock(1, 64, normalize=self.norm, kernel_size=4, stride=1, padding=0, dropout=0)
-        self.down2 = ConvBlock(64, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.down3 = ConvBlock(64, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.down4 = ConvBlock(128, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.down5 = ConvBlock(256, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.down6 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.down7 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        self.encode_layers = []
+        self.encode_layers.append(ConvBlock(1, conv_dim, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0))
 
-        self.up1 = TransConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.up2 = TransConvBlock(1024, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.up3 = TransConvBlock(1024, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.up4 = TransConvBlock(512, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.up5 = TransConvBlock(256, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.up6 = TransConvBlock(128, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
-        self.final = ConvBlock(
-            128, 2, normalize=None, kernel_size=1, stride=1, padding=0, dropout=0, activation_fn=nn.Tanh()
-        )
+        curr_dim = conv_dim
+        for i in range(1, 4):
+            self.encode_layers.append(ConvBlock(curr_dim, curr_dim * 2, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0))
+            curr_dim = curr_dim * 2
+        for j in range(repeat_num):
+            self.encode_layers.append(ConvBlock(curr_dim, curr_dim, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0))
+
+        self.decode_layers = []
+        self.decode_layers.append(TransConvBlock(curr_dim, curr_dim, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0))
+
+        for k in range(repeat_num - 1):
+            self.decode_layers.append(TransConvBlock(curr_dim * 2, curr_dim, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0))
+        for h in range(1, 4):
+            curr_dim = curr_dim // 2
+            self.decode_layers.append(TransConvBlock(curr_dim * 4, curr_dim, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0))
+
+        self.final = ConvBlock(curr_dim * 2, 2, normalize=None, kernel_size=1, stride=1, padding=0, dropout=0, activation_fn=nn.Tanh())
+
+        # self.down1 = ConvBlock(1, 64, normalize=self.norm, kernel_size=4, stride=1, padding=0, dropout=0)
+        # self.down2 = ConvBlock(64, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.down3 = ConvBlock(64, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.down4 = ConvBlock(128, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.down5 = ConvBlock(256, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.down6 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.down7 = ConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        #
+        # self.up1 = TransConvBlock(512, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.up2 = TransConvBlock(1024, 512, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.up3 = TransConvBlock(1024, 256, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.up4 = TransConvBlock(512, 128, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.up5 = TransConvBlock(256, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.up6 = TransConvBlock(128, 64, normalize=self.norm, kernel_size=4, stride=2, padding=1, dropout=0)
+        # self.final = ConvBlock(
+        #     128, 2, normalize=None, kernel_size=1, stride=1, padding=0, dropout=0, activation_fn=nn.Tanh()
+        #)
 
     def forward(self, x):
         #print(x.dtype)
-        x = F.interpolate(x, size=(131, 131), mode='bilinear', align_corners=True)
-        d1 = self.down1(x)
-        d2 = self.down2(d1)
-        d3 = self.down3(d2)
-        d4 = self.down4(d3)
-        d5 = self.down5(d4)
-        d6 = self.down6(d5)
-        d7 = self.down7(d6)
+        #x = F.interpolate(x, size=(131, 131), mode='bilinear', align_corners=True)
+        encoded_results = []
+        for encode_layer in range(self.encode_layers):
+            encoded_result = encode_layer(x)
+            encoded_results.append(encoded_result)
 
-        u1 = self.up1(d7, d6)
-        u2 = self.up2(u1, d5)
-        u3 = self.up3(u2, d4)
-        u4 = self.up4(u3, d3)
-        u5 = self.up5(u4, d2)
-        u6 = self.up6(u5, d1)
+        flag = len(encoded_results)
+        for decode_layer in range(self.decode_layers):
+            if flag == len(encoded_results):
+                decoded_result = decode_layers(encoded_results[-1], encoded_results[-2])
+                encoded_results.pop(-1)
+                encoded_results.pop(-1)
+            else:
+                decoded_result = decode_layer(decoded_result, encoded_results[-1])
+                encoded_results.pop(-1)
 
-        x = self.final(u6)
+        x = self.final(decoded_result)
+        # d1 = self.down1(x)
+        # d2 = self.down2(d1)
+        # d3 = self.down3(d2)
+        # d4 = self.down4(d3)
+        # d5 = self.down5(d4)
+        # d6 = self.down6(d5)
+        # d7 = self.down7(d6)
+
+        # u1 = self.up1(d7, d6)
+        # u2 = self.up2(u1, d5)
+        # u3 = self.up3(u2, d4)
+        # u4 = self.up4(u3, d3)
+        # u5 = self.up5(u4, d2)
+        # u6 = self.up6(u5, d1)
+        #
+        # x = self.final(u6)
         return x
 
 class Discriminator(nn.Module):
@@ -139,29 +177,34 @@ class Discriminator(nn.Module):
 
 class unet_generator(nn.Module):
 
-    def __init__(self, input_nc, output_nc, ngf, color_dim = 313):
+    def __init__(self, color_dim = 313, img_size = 128):
         super(unet_generator, self).__init__()
 
-        self.e1 = nn.Conv2d(input_nc, ngf, 4, 2, 1)
-        self.e2 = unet_encoder_block(ngf, ngf * 2)
-        self.e3 = unet_encoder_block(ngf * 2, ngf * 4)
-        self.e4 = unet_encoder_block(ngf * 4, ngf * 8)
-        self.e5 = unet_encoder_block(ngf * 8, ngf * 8)
-        self.e6 = unet_encoder_block(ngf * 8, ngf * 8, norm = None)
+        self.norm = 'adain'
 
-        self.d1 = unet_decoder_block(ngf * 8, ngf * 8)
-        self.d2 = unet_decoder_block(ngf * 8 * 2, ngf * 8, drop_out = None)
-        self.d3 = unet_decoder_block(ngf * 8 * 2, ngf * 4, drop_out = None)
-        self.d4 = unet_decoder_block(ngf * 4 * 2, ngf * 2, drop_out = None)
-        self.d5 = unet_decoder_block(ngf * 2 * 2, ngf, drop_out = None)
-        self.d6 = unet_decoder_block(ngf * 2, output_nc, norm = None, drop_out = None)
-        self.tanh = nn.Tanh()
+        self.down1 = ConvBlock(1, 64, normalize = self.norm, kernel_size = 4, stride = 1, padding = 0, dropout = 0)
+        self.down2 = ConvBlock(64, 64, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.down3 = ConvBlock(64, 128, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.down4 = ConvBlock(128, 256, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.down5 = ConvBlock(256, 512, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.down6 = ConvBlock(512, 512, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.down7 = ConvBlock(512, 512, normalize = None, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
 
-        self.layers = [self.e1, self.e2, self.e3, self.e4, self.e5, self.e6,
-                 self.d1, self.d2, self.d3, self.d4, self.d5, self.d6]
+        self.up1 = TransConvBlock(512, 512, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.up2 = TransConvBlock(1024, 512, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.up3 = TransConvBlock(1024, 256, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.up4 = TransConvBlock(512, 128, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.up5 = TransConvBlock(256, 64, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.up6 = TransConvBlock(128, 64, normalize = self.norm, kernel_size = 4, stride = 2, padding = 1, dropout = 0)
+        self.final = ConvBlock(
+            128, 2, normalize = None, kernel_size = 1, stride = 1, padding = 0, dropout = 0, activation_fn = nn.Tanh()
+        )
+
+        self.layers = [self.down1, self.down2, self.down3, self.down4, self.down5, self.down6, self.down7,
+                 self.up1, self.up2, self.up3, self.up4, self.up5, self.up6, self.final]
 
         self.mlp = MLP(color_dim, self.get_num_adain_params(self.layers), self.get_num_adain_params(self.layers), 3)
-
+        self.img_size = img_size
 
     def forward(self, x, color_feat):
 
@@ -169,35 +212,24 @@ class unet_generator(nn.Module):
         adain_params = self.mlp(color_feat)
         self.assign_adain_params(adain_params, self.layers)
 
-        ### Encoder
-        e1 = self.e1(x)
-        e2 = self.e2(e1)
-        e3 = self.e3(e2)
-        e4 = self.e4(e3)
-        e5 = self.e5(e4)
-        e6 = self.e6(e5)
+        x = F.interpolate(x, size=(self.img_size + 3, self.img_size + 3), mode='bilinear', align_corners=True)
+        d1 = self.down1(x)
+        d2 = self.down2(d1)
+        d3 = self.down3(d2)
+        d4 = self.down4(d3)
+        d5 = self.down5(d4)
+        d6 = self.down6(d5)
+        d7 = self.down7(d6)
 
-        ### Decoder
-        d1_ = self.d1(e6)
-        d1 = torch.cat([d1_, e5], dim = 1)
+        u1 = self.up1(d7, d6)
+        u2 = self.up2(u1, d5)
+        u3 = self.up3(u2, d4)
+        u4 = self.up4(u3, d3)
+        u5 = self.up5(u4, d2)
+        u6 = self.up6(u5, d1)
 
-        d2_ = self.d2(d1)
-        d2 = torch.cat([d2_, e4], dim = 1)
-
-        d3_ = self.d3(d2)
-        d3 = torch.cat([d3_, e3], dim = 1)
-
-        d4_ = self.d4(d3)
-        d4 = torch.cat([d4_, e2], dim = 1)
-
-        d5_ = self.d5(d4)
-        d5 = torch.cat([d5_, e1], dim = 1)
-
-        d6 = self.d6(d5)
-
-        output = self.tanh(d6)
-
-        return output
+        x = self.final(u6)
+        return x
 
     def get_num_adain_params(self, _module):
         # return the number of AdaIN parameters needed by the model
@@ -220,42 +252,6 @@ class unet_generator(nn.Module):
                     if adain_params.size(1) > 2*m.num_features:
                         adain_params = adain_params[:, 2*m.num_features:]
 
-
-class unet_encoder_block(nn.Module):
-
-    def __init__(self, input_nc, output_nc, ks = 4, stride = 2, padding = 1, norm = 'adain', act = nn.LeakyReLU(inplace = True, negative_slope = 0.2)):
-        super(unet_encoder_block, self).__init__()
-        self.conv = nn.Conv2d(input_nc, output_nc, ks, stride, padding)
-        m = [act, self.conv]
-
-        if norm == 'adain':
-            m.append(AdaptiveInstanceNorm2d(output_nc))
-
-        self.body = nn.Sequential(*m)
-
-    def forward(self, x):
-        print(x.shape)
-        return self.body(x)
-
-class unet_decoder_block(nn.Module):
-
-    def __init__(self, input_nc, output_nc, ks = 4, stride = 2, padding = 1, norm = 'adain', act = nn.ReLU(inplace = True), drop_out = 0.5):
-        super(unet_decoder_block, self).__init__()
-        self.deconv = nn.ConvTranspose2d(input_nc, output_nc, ks, stride, padding)
-        m = [act, self.deconv]
-
-        if norm == 'adain':
-            m.append(AdaptiveInstanceNorm2d(output_nc))
-
-        if drop_out is not None:
-            m.append(nn.Dropout(drop_out))
-
-        self.body = nn.Sequential(*m)
-
-    def forward(self, x):
-        return self.body(x)
-
-
 class MLP(nn.Module):
     def __init__(self, input_dim, output_dim, dim, n_blk, act = nn.ReLU(inplace = True)):
 
@@ -274,7 +270,6 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.model(x.view(x.size(0), -1))
-
 
 class AdaptiveInstanceNorm2d(nn.Module):
     def __init__(self, num_features, eps=1e-5, momentum=0.1):
@@ -308,10 +303,10 @@ class AdaptiveInstanceNorm2d(nn.Module):
         return self.__class__.__name__ + '(' + str(self.num_features) + ')'
 
 class Discriminator2(nn.Module):
-    def __init__(self, img_dim, feature_dim, imsize, conv_dim=64, repeat_num=5):
+    def __init__(self, feature_dim, imsize, conv_dim=64, repeat_num=5):
         super(Discriminator2, self).__init__()
 
-
+        img_dim = 3
         input_dim = img_dim + feature_dim
 
         layers = []
@@ -335,6 +330,8 @@ class Discriminator2(nn.Module):
         )
 
     def forward(self, ab_img, l_img, color_feat):
+        print(ab_img.shape)
+        print(l_img.shape)
         x = torch.cat([ab_img, l_img, color_feat], dim = 1)
         batch_size = x.size(0)
         h = self.main(x)

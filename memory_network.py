@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from ResNet import ResNet18
 import numpy as np
-from skimage.color import rgb2lab, deltaE_ciede2000
+from skimage.color import rgb2lab
 
 
 class Memory_Network(nn.Module):
