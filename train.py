@@ -89,7 +89,7 @@ def train_and_validation(args):
     else:
         global_step, device, data_loaders, generator, discriminator, optimizers, losses = init_training(args)
     #  run training process
-    for epoch in range(args.start_epoch, args.end_epoch):
+    for epoch in range(args.start_epoch + 1, args.end_epoch + 1):
         print('\n========== EPOCH {} =========='.format(epoch))
 
         for phase in ['train', 'val']:
@@ -231,30 +231,30 @@ def define_arguments():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     # Arguments for initializing dataset
-    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/DogTrouble/', help = 'Path to load the training data')
-    parser.add_argument("--val_data_path", type = str, default = '/home/leon/DeepLearning/Project/DogTrouble/', help = 'Path to load the validation data')
+    parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/train', help = 'Path to load the training data')
+    parser.add_argument("--val_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/val', help = 'Path to load the validation data')
     parser.add_argument("--img_size", type = int, default = 128, help = 'Height and weight of the images the networks will process')
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy', help = 'Extra file for mapping color pairs in ab channels into Q(313) categories')
     # Arguments for initializing dataLoader
     parser.add_argument('--batch_size', type = int, default = 8)
     parser.add_argument('--num_workers', type = int, default = 4)
     # Arguments for initializing networks
-    parser.add_argument('--use_memory', type = bool, default = False, help = 'Use memory or not')
-    parser.add_argument("--mem_size", type = int, default = 360, help = 'The number of color and spatial features that will be stored in the memory_network respectively')
+    parser.add_argument('--use_memory', type = bool, default = True, help = 'Use memory or not')
+    parser.add_argument("--mem_size", type = int, default = 1200, help = 'The number of color and spatial features that will be stored in the memory_network respectively')
     parser.add_argument("--color_feat_dim", type = int, default = 313, help = 'Dimension of color feaures extracted from an image')
     parser.add_argument("--spatial_feat_dim", type = int, default = 512, help = 'Dimension of spatial feaures extracted from an image')
     parser.add_argument("--top_k", type = int, default = 256, help = 'Select the top k spatial feaures in memory_network which relate to input query')
     parser.add_argument("--alpha", type = float, default = 0.1, help = 'Bias term in the unsupervised loss')
-    parser.add_argument('--gen_norm', type = str, default = 'batch', choices = ['batch', 'adain'], help = 'Defines the type of normalization used in the generator.')
-    parser.add_argument('--dis_norm', type = str, default = None, choices=['None', 'adain'], help = 'Defines the type of normalization used in the discriminator.')
+    parser.add_argument('--gen_norm', type = str, default = 'adain', choices = ['batch', 'adain'], help = 'Defines the type of normalization used in the generator.')
+    parser.add_argument('--dis_norm', type = str, default = 'adain', choices=['None', 'adain'], help = 'Defines the type of normalization used in the discriminator.')
     # Arguments for setting the optimizers
     parser.add_argument("--base_lr", type = float, default = 1e-4, help = 'Base learning rate for the networks.')
     #Arguments for saving network parameters and real and fake images
     parser.add_argument('--save_path', type = str, default='../checkpoints', help = 'Save and load path for the network weights.')
-    parser.add_argument('--save_freq', type = int, default = 50, help = 'Save frequency during training.')
+    parser.add_argument('--save_freq', type = int, default = 25, help = 'Save frequency during training.')
     #Arguments for setting start epoch and end epoch
     parser.add_argument('--start_epoch', type = int, default = 0, help = 'If start_epoch>0, load previously saved weigth from the save_path.')
-    parser.add_argument('--end_epoch', type = int, default = 200)
+    parser.add_argument('--end_epoch', type = int, default = 50)
     # Rest arguments
     parser.add_argument("--color_thres", type = float, default = 0.7, help = 'Threshold for deciding the case 1 and case 2 in updating the memory_network')
     parser.add_argument('--smoothing', type = float, default = 0.9, help = 'Argument for implementing one-sided label smoothing')

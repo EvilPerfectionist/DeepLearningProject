@@ -70,7 +70,7 @@ def save_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=20,
         cv2.waitKey(10000)
 
 
-def save_test_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=14, scale=1.6, show=False):
+def save_test_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=6, scale=1.6, show=False):
     """
     Create a grid of ground truth,
     grayscale and 2 colorized images (from different sources) and save + display it to the user.

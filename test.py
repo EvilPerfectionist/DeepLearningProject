@@ -34,7 +34,7 @@ def init_test(args):
         mem.age = mem_checkpoint['mem_age']
         mem.top_index = mem_checkpoint['mem_index']
 
-    generator.load_state_dict(torch.load(args.generator_model_path))
+    generator.load_state_dict(torch.load(args.mem_generator_model_path))
 
     if args.use_memory == True:
         mem.to(device)
@@ -76,6 +76,8 @@ def run_test(args):
         fake_image = torch.cat([img_l, fake_img_ab], dim = 1)
 
         print('sample {}/{}'.format(idx + 1, len(test_dataloader) + 1))
+        if not os.path.exists(args.save_path):
+            os.mkdir(args.save_path)
         save_test_sample(real_image, fake_image, args.img_size,
                          os.path.join(args.save_path, 'test_sample_{}.png'.format(idx)), show=False)
 
@@ -84,7 +86,7 @@ def get_arguments():
     """Get command line arguments."""
     parser = argparse.ArgumentParser(description='Animation Colorization with Memory-Augmented Networks and a Few Shots.')
     # Arguments for initializing dataset
-    parser.add_argument('--data_path', type=str, default='/home/leon/DeepLearning/Project/Dataset/DogTrouble/test')
+    parser.add_argument('--data_path', type=str, default='/home/leon/DeepLearning/Project/Dataset/test')
     parser.add_argument("--img_size", type = int, default = 128, help = 'Height and weight of the images the networks will process')
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy', help = 'Extra file for mapping color pairs in ab channels into Q(313) categories')
     # Arguments for initializing dataLoader
@@ -92,16 +94,16 @@ def get_arguments():
     parser.add_argument('--num_workers', type = int, default = 4)
     # Arguments for initializing networks
     parser.add_argument('--use_memory', type = bool, default = False, help = 'Use memory or not')
-    parser.add_argument("--mem_size", type = int, default = 360, help = 'The number of color and spatial features that will be stored in the memory_network respectively')
+    parser.add_argument("--mem_size", type = int, default = 1200, help = 'The number of color and spatial features that will be stored in the memory_network respectively')
     parser.add_argument("--color_feat_dim", type = int, default = 313, help = 'Dimension of color feaures extracted from an image')
     parser.add_argument("--spatial_feat_dim", type = int, default = 512, help = 'Dimension of spatial feaures extracted from an image')
     parser.add_argument("--top_k", type = int, default = 256, help = 'Select the top k spatial feaures in memory_network which relate to input query')
     parser.add_argument("--alpha", type = float, default = 0.1, help = 'Bias term in the unsupervised loss')
-    parser.add_argument('--gen_norm', type = str, default = 'batch', choices = ['batch', 'adain'], help = 'Defines the type of normalization used in the generator.')
-    parser.add_argument('--save_path', type=str, default='/home/leon/DeepLearning/Project/Dataset/DogTrouble/result', help='Save path for the test imgs.')
+    parser.add_argument('--gen_norm', type = str, default = 'adain', choices = ['batch', 'adain'], help = 'Defines the type of normalization used in the generator.')
+    parser.add_argument('--save_path', type=str, default='/home/leon/DeepLearning/Project/Dataset/result', help='Save path for the test imgs.')
     # Arguments for loading the trained networks
-    parser.add_argument("--mem_model_path", type = str, default = '/home/leon/DeepLearning/Project/checkpoints/checkpoint_ep199mem.pt')
-    parser.add_argument("--generator_model_path", type = str, default = '/home/leon/DeepLearning/Project/checkpoints/checkpoint_ep199_gen.pt')
+    parser.add_argument("--mem_model_path", type = str, default = '/home/leon/DeepLearning/Project/checkpoints/checkpoint_ep50_mem.pt')
+    parser.add_argument("--mem_generator_model_path", type = str, default = '/home/leon/DeepLearning/Project/checkpoints/checkpoint_ep50_gen.pt')
 
     args = parser.parse_args()
     return args
