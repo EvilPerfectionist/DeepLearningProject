@@ -28,6 +28,9 @@ class customed_dataset(Dataset):
 
         img_item = {}
         rgb_image = Image.open(os.path.join(self.img_path, self.img[i])).convert('RGB')
+        img_name = self.img[i]
+        img_id = ''.join(filter(lambda i: i.isdigit(), img_name))
+
         w, h = rgb_image.size
         if w != h:
             min_val = min(w, h)
@@ -51,12 +54,10 @@ class customed_dataset(Dataset):
         res_input = (res_input - self.res_normalize_mean) / self.res_normalize_std
         res_input = resize(res_input, (224, 224))
 
-        index = i + 0.0
-
         img_item['img_l'] = np.transpose(l_image, (2, 0, 1)).astype(np.float32)
         img_item['img_ab'] = np.transpose(ab_image, (2, 0, 1)).astype(np.float32)
         img_item['color_feat'] = color_feat.astype(np.float32)
         img_item['res_input'] = np.transpose(res_input, (2, 0, 1)).astype(np.float32)
-        img_item['index'] = np.array(([index])).astype(np.float32)[0]
+        img_item['img_id'] = np.array(([float(img_id)])).astype(np.float32)[0]
 
         return img_item

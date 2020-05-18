@@ -36,17 +36,30 @@ def print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss, epoch_disc_real_loss, ep
         epoch_disc_fake_acc / data_loader_len
     ))
 
+def get_imgs_from_id(img_ids, img_size):
+    imgs_bgr = []
+    for i in range(len(img_ids)):
+        print(str(int(img_ids[i]))[4:])
+        img_path = '/home/leon/DeepLearning/Project/Dataset/train/raw_image_HowToTrainYourDragonTheHiddenWorld2019_' + str(int(img_ids[i]))[4:] + '.png'
+        print(img_path)
+        img_bgr = cv2.imread(img_path)
+        img_bgr = cv2.resize(img_bgr, (img_size, img_size))
+        imgs_bgr.append(img_bgr)
+    return imgs_bgr
 
-def save_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=20, scale=2.2, show=False):
+def save_sample(real_imgs_lab, fake_imgs_lab, img_ids, img_size, save_path, ref_path, plot_size=20, scale=2.2, show=False):
     """Create a grid of ground truth, grayscale and colorized images and save + display it to the user."""
     batch_size = real_imgs_lab.size()[0]
     plot_size = min(plot_size, batch_size)
 
     # create white canvas
     canvas = np.ones((3*img_size + 4*6, plot_size*img_size + (plot_size+1)*6, 3), dtype=np.uint8)*255
+    ref_canvas = np.ones((3*img_size + 4*6, plot_size*img_size + (plot_size+1)*6, 3), dtype=np.uint8)*255
 
     real_imgs_lab = real_imgs_lab.cpu().numpy()
     fake_imgs_lab = fake_imgs_lab.cpu().numpy()
+    img_ids = img_ids.cpu().numpy()
+    print(img_ids)
 
     for i in range(0, plot_size):
         # postprocess real and fake samples
@@ -59,10 +72,21 @@ def save_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=20,
         canvas[12+img_size:12+2*img_size, x:x+img_size, :] = np.repeat(grayscale, 3, axis=2)
         canvas[18+2*img_size:18+3*img_size, x:x+img_size, :] = fake_bgr
 
+    for j in range(0, plot_size):
+        # postprocess real and fake samples
+        ref_imgs = get_imgs_from_id(img_ids[j], img_size)
+        # paint
+        x = (j+1)*6+j*img_size
+        ref_canvas[6:6+img_size, x:x+img_size, :] = ref_imgs[0]
+        ref_canvas[12+img_size:12+2*img_size, x:x+img_size, :] = ref_imgs[1]
+        ref_canvas[18+2*img_size:18+3*img_size, x:x+img_size, :] = ref_imgs[2]
+
     # scale
     canvas = cv2.resize(canvas, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
+    ref_canvas = cv2.resize(ref_canvas, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
     # save
     cv2.imwrite(os.path.join(save_path), canvas)
+    cv2.imwrite(os.path.join(ref_path), ref_canvas)
 
     if show:
         cv2.destroyAllWindows()
@@ -70,7 +94,7 @@ def save_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=20,
         cv2.waitKey(10000)
 
 
-def save_test_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_size=6, scale=1.6, show=False):
+def save_test_sample(real_imgs_lab, fake_imgs_lab, img_ids, img_size, save_path, ref_path, plot_size=6, scale=1.6, show=False):
     """
     Create a grid of ground truth,
     grayscale and 2 colorized images (from different sources) and save + display it to the user.
@@ -80,9 +104,12 @@ def save_test_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_siz
 
     # create white canvas
     canvas = np.ones((plot_size*img_size + (plot_size+1)*6, 3*img_size + 5*8, 3), dtype=np.uint8)*255
+    ref_canvas = np.ones((plot_size*img_size + (plot_size+1)*6, 3*img_size + 5*8, 3), dtype=np.uint8)*255
 
     real_imgs_lab = real_imgs_lab.cpu().numpy()
     fake_imgs_lab = fake_imgs_lab.cpu().numpy()
+    img_ids = img_ids.cpu().numpy()
+    print(img_ids)
 
     for i in range(0, plot_size):
         # post-process real and fake samples
@@ -95,10 +122,21 @@ def save_test_sample(real_imgs_lab, fake_imgs_lab, img_size, save_path, plot_siz
         canvas[x:x+img_size, 16 + img_size:16 + 2 * img_size, :] = np.repeat(grayscale, 3, axis=2)
         canvas[x:x+img_size, 24 + 2 * img_size:24 + 3 * img_size, :] = fake_bgr
 
+    for j in range(0, plot_size):
+        # postprocess real and fake samples
+        ref_imgs = get_imgs_from_id(img_ids[j], img_size)
+        # paint
+        x = (j+1)*6+j*img_size
+        ref_canvas[x:x+img_size, 8:8 + img_size, :] = ref_imgs[0]
+        ref_canvas[x:x+img_size, 16 + img_size:16 + 2 * img_size, :] = ref_imgs[1]
+        ref_canvas[x:x+img_size, 24 + 2 * img_size:24 + 3 * img_size, :] = ref_imgs[2]
+
     # scale
     canvas = cv2.resize(canvas, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
+    ref_canvas = cv2.resize(ref_canvas, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
     # save
     cv2.imwrite(os.path.join(save_path), canvas)
+    cv2.imwrite(os.path.join(ref_path), ref_canvas)
 
     if show:
         cv2.destroyAllWindows()

@@ -5,8 +5,7 @@ import sys
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 from torch.utils.data import DataLoader
-from memory_network import Memory_Network
-from networks import Generator
+from networks import Generator, Memory_Network, Feature_Integrator
 from helpers import save_test_sample, print_args
 from dataset import customed_dataset
 
@@ -24,6 +23,8 @@ def init_test(args):
     if args.use_memory == True:
         mem = Memory_Network(mem_size = args.mem_size, color_feat_dim = args.color_feat_dim, spatial_feat_dim = args.spatial_feat_dim, top_k = args.top_k, alpha = args.alpha)
     generator = Generator(args.color_feat_dim, args.img_size, args.gen_norm)
+    feature_integrator = Feature_Integrator(3, 1, 200)
+
 
     if args.use_memory == True:
         ### Load the pre-trained model
@@ -32,7 +33,9 @@ def init_test(args):
         mem.sptial_key = mem_checkpoint['mem_key']
         mem.color_value = mem_checkpoint['mem_value']
         mem.age = mem_checkpoint['mem_age']
-        mem.top_index = mem_checkpoint['mem_index']
+        mem.img_id = mem_checkpoint['img_id']
+
+        feature_integrator.load_state_dict(torch.load(args.feat_model_path))
 
     generator.load_state_dict(torch.load(args.mem_generator_model_path))
 
@@ -42,18 +45,20 @@ def init_test(args):
         mem.color_value = mem.color_value.to(device)
         mem.age = mem.age.to(device)
     generator.to(device)
+    feature_integrator.to(device)
 
     generator = generator.eval()
+    feature_integrator = feature_integrator.eval()
 
     if args.use_memory == True:
-        return generator, mem, test_dataloader, device
+        return generator, mem, feature_integrator, test_dataloader, device
     else:
         return generator, test_dataloader, device
 
 def run_test(args):
     """Run the networks on the test set, and save/show the samples."""
     if args.use_memory == True:
-        generator, mem, test_dataloader, device = init_test(args)
+        generator, mem, feature_integrator, test_dataloader, device = init_test(args)
     else:
         generator, test_dataloader, device = init_test(args)
 
@@ -62,14 +67,15 @@ def run_test(args):
 
         res_input = batch['res_input'].to(device)
         color_feat = batch['color_feat'].to(device)
-        index = batch['index'].to(device)
         img_l = (batch['img_l'] / 100.0).to(device)
         img_ab = (batch['img_ab'] / 110.0).to(device)
+        img_id = batch['img_id'].to(device)
 
         if args.use_memory == True:
             query = mem(res_input)
-            top1_feature, _ = mem.topk_feature(query, 1)
-            color_feat = top1_feature[:, 0, :]
+            top_features, ref_img_ids = mem.topk_feature(query, 3)
+            top_features = torch.transpose(top_features, dim0 = 1, dim1 = 2)
+            color_feat = feature_integrator(top_features)
         fake_img_ab = generator(img_l, color_feat).detach()
 
         real_image = torch.cat([img_l, img_ab], dim = 1)
@@ -78,8 +84,9 @@ def run_test(args):
         print('sample {}/{}'.format(idx + 1, len(test_dataloader) + 1))
         if not os.path.exists(args.save_path):
             os.mkdir(args.save_path)
-        save_test_sample(real_image, fake_image, args.img_size,
-                         os.path.join(args.save_path, 'test_sample_{}.png'.format(idx)), show=False)
+        save_test_sample(real_image, fake_image, ref_img_ids, args.img_size,
+                         os.path.join(args.save_path, 'test_sample_{}.png'.format(idx)),
+                         os.path.join(args.save_path, 'ref_sample_{}.png'.format(idx)), show=False)
 
 
 def get_arguments():
@@ -93,7 +100,7 @@ def get_arguments():
     parser.add_argument('--batch_size', type = int, default = 8)
     parser.add_argument('--num_workers', type = int, default = 4)
     # Arguments for initializing networks
-    parser.add_argument('--use_memory', type = bool, default = False, help = 'Use memory or not')
+    parser.add_argument('--use_memory', type = bool, default = True, help = 'Use memory or not')
     parser.add_argument("--mem_size", type = int, default = 1200, help = 'The number of color and spatial features that will be stored in the memory_network respectively')
     parser.add_argument("--color_feat_dim", type = int, default = 313, help = 'Dimension of color feaures extracted from an image')
     parser.add_argument("--spatial_feat_dim", type = int, default = 512, help = 'Dimension of spatial feaures extracted from an image')
@@ -104,6 +111,7 @@ def get_arguments():
     # Arguments for loading the trained networks
     parser.add_argument("--mem_model_path", type = str, default = '/home/leon/DeepLearning/Project/checkpoints/checkpoint_ep50_mem.pt')
     parser.add_argument("--mem_generator_model_path", type = str, default = '/home/leon/DeepLearning/Project/checkpoints/checkpoint_ep50_gen.pt')
+    parser.add_argument("--feat_model_path", type = str, default = '/home/leon/DeepLearning/Project/checkpoints/checkpoint_ep50_feat.pt')
 
     args = parser.parse_args()
     return args
