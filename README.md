@@ -23,3 +23,9 @@ The file takes five parameters:
 * save_path: Where you want to save the extracted images. The file will create a base folder in this path and create train/val/test folders inside the base folder.
 * col_diff_thres: threshold of the color distribution difference.
 * shots_len_thres: threshold of the length of the shots. You can customize the last two parameters to control the number of images you want to obtain.
+
+***Note:*** There is a conflict between ROS and OpenCV so that I add the following code to my file. If you don't use ROS, please remove them.
+```
+import sys
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+```
