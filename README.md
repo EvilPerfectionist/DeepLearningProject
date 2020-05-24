@@ -9,6 +9,8 @@ The project is to reproduce the Memory-Augmented Networks proposed by [Coloring 
 * python-opencv
 * matplotlib
 * pytorch 1.1.0
+* skimage
+* sklearn
 
 ## Outline
 
@@ -52,7 +54,7 @@ The DataLoader will load a batch of elements in the datasets according to the `b
 
 You can choose to train your networks in three different ways.
 * Train a basic generative adversarial network(GAN) for colorization. If you want this option, please set the parameters `use_memory` as `False`, `use_feat_integrator` as `False`, `gen_norm` as `batch` and `dis_norm` as `None`.
-* Train a GAN with memory but without feature_integrator for colorization. If you want this option, please set the parameters `use_memory` as `True`, `use_feat_integrator` as `False`, `gen_norm` as `adain` and `dis_norm` as `adain`.
+* Train a GAN with memory but without feature integrator for colorization. If you want this option, please set the parameters `use_memory` as `True`, `use_feat_integrator` as `False`, `gen_norm` as `adain` and `dis_norm` as `adain`.
 * Train a GAN with memory and feature integrator for colorization. If you want this option, please set the parameters `use_memory` as `True`, `use_feat_integrator` as `True`, `gen_norm` as `adain` and `dis_norm` as `adain`.
 
 The first option allows you to train a vanilla GAN for colorization. Setting `gen_norm` as `batch` makes each convolutional layer of the generator followed by a batch normalization layer.
@@ -61,4 +63,4 @@ The second option allows you to train a GAN with a memory, which is the official
 
 The third option allows you to train a GAN with a memory and a feature integrator. During training phase, the parameters of AdaIn layers are set by color features from the ground truth images and the feature integrator learns the weights to combine top-1, top-2 and top-3 memory so that the combined feature is as close to ground truth feature as possible. During test phase, parameters of AdaIn layers are set by color features from the combination of top-1, top-2 and top-3 memory on the basis of learned weights of the feature integrator.
 
-***Note:*** All the source code of the networks(generator, discriminator, memory_network, feature integrator) can be found in `networks.py`. The generator follows a U-Net architecture. You can customize your network by adding and removing layers. Also, you can use your own generator and discriminator.
+***Note:*** All the source code of the networks(generator, discriminator, memory network, feature integrator) can be found in `networks.py`. The generator follows a [U-Net architecture](network.png). You can customize your network by adding and removing layers. Also, you can use your own generator and discriminator.
