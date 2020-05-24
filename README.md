@@ -71,6 +71,6 @@ All the networks use Adam optimizer. We follow the idea in this [paper](https://
 
 We made a small modification to the loss function of the generator from the original paper. We added a regulation term `lambda` to control the regulation effect of the L1 loss between the output image and the ground truth image. We set this regulation term as 100 to make this the output image as similar to the ground truth image as possible. The memory network still uses the Threshold Triplet Loss for unsupervised training. The feature integrator uses the KL divergence between the combined color feature and the ground truth color feature as the loss.
 
-## Saving Models and Validation Results
+### Saving Models and Validation Results
 
 You can change the parameter `save_path` to the desired path where you want to save you model weights and validation colorization results. You can change the parameter `save_freq` to state you want to save model weights after training how many epochs. You can change the parameter `start_epoch` to start training from a certain epoch by loading saved model weights from that epoch. The parameter `end_epoch` decides the maximum training epoch.
