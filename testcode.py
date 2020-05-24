@@ -69,5 +69,10 @@ from skimage.color import rgb2lab, lab2rgb
 # x = np.array([[1,2],[3,4]])
 # print(x.repeat(4, axis = 0))
 # print(int(128 / np.power(2, 5)))
-x = "201988"
-print(x[4:])
+# x = "201988"
+# print(x[4:])
+# x = np.array([0, 1, 2, 3, 4])
+# itemindex = np.where(x == 3)[0]
+# print(itemindex)
+print(56 // 10)
+print(56 % 10)

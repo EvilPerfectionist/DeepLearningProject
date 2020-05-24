@@ -298,18 +298,18 @@ def define_arguments():
     # Arguments for initializing dataset
     parser.add_argument("--train_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/train', help = 'Path to load the training data')
     parser.add_argument("--val_data_path", type = str, default = '/home/leon/DeepLearning/Project/Dataset/val', help = 'Path to load the validation data')
-    parser.add_argument("--img_size", type = int, default = 128, help = 'Height and weight of the images the networks will process')
+    parser.add_argument("--img_size", type = int, default = 256, help = 'Height and weight of the images the networks will process')
     parser.add_argument("--km_file_path", type = str, default = './pts_in_hull.npy', help = 'Extra file for mapping color pairs in ab channels into Q(313) categories')
     # Arguments for initializing dataLoader
-    parser.add_argument('--batch_size', type = int, default = 8)
+    parser.add_argument('--batch_size', type = int, default = 2)
     parser.add_argument('--num_workers', type = int, default = 4)
     # Arguments for initializing networks
     parser.add_argument('--use_memory', type = bool, default = True, help = 'Use memory or not')
-    parser.add_argument('--use_feat_integrator', type = bool, default = True, help = 'Use feature_integrator or not')
-    parser.add_argument("--mem_size", type = int, default = 1200, help = 'The number of color and spatial features that will be stored in the memory_network respectively')
+    parser.add_argument('--use_feat_integrator', type = bool, default = False, help = 'Use feature_integrator or not')
+    parser.add_argument("--mem_size", type = int, default = 120, help = 'The number of color and spatial features that will be stored in the memory_network respectively')
     parser.add_argument("--color_feat_dim", type = int, default = 313, help = 'Dimension of color feaures extracted from an image')
     parser.add_argument("--spatial_feat_dim", type = int, default = 512, help = 'Dimension of spatial feaures extracted from an image')
-    parser.add_argument("--top_k", type = int, default = 256, help = 'Select the top k spatial feaures in memory_network which relate to input query')
+    parser.add_argument("--top_k", type = int, default = 64, help = 'Select the top k spatial feaures in memory_network which relate to input query')
     parser.add_argument("--alpha", type = float, default = 0.1, help = 'Bias term in the unsupervised loss')
     parser.add_argument('--gen_norm', type = str, default = 'adain', choices = ['batch', 'adain'], help = 'Defines the type of normalization used in the generator.')
     parser.add_argument('--dis_norm', type = str, default = 'adain', choices=['None', 'adain'], help = 'Defines the type of normalization used in the discriminator.')
@@ -323,10 +323,10 @@ def define_arguments():
     parser.add_argument('--lr_decay_steps', type = float, default = 6e4, help = 'Learning rate decay steps for both networks.')
     #Arguments for saving network parameters and real and fake images
     parser.add_argument('--save_path', type = str, default='../checkpoints', help = 'Save and load path for the network weights.')
-    parser.add_argument('--save_freq', type = int, default = 10, help = 'Save frequency during training.')
+    parser.add_argument('--save_freq', type = int, default = 50, help = 'Save frequency during training.')
     #Arguments for setting start epoch and end epoch
     parser.add_argument('--start_epoch', type = int, default = 0, help = 'If start_epoch>0, load previously saved weigth from the save_path.')
-    parser.add_argument('--end_epoch', type = int, default = 50)
+    parser.add_argument('--end_epoch', type = int, default = 200)
     # Rest arguments
     parser.add_argument("--color_thres", type = float, default = 0.7, help = 'Threshold for deciding the case 1 and case 2 in updating the memory_network')
     parser.add_argument('--l1_weight', type = float, default = 0.99)

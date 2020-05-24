@@ -39,8 +39,8 @@ def print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss, epoch_disc_real_loss, ep
 def get_imgs_from_id(img_ids, img_size):
     imgs_bgr = []
     for i in range(len(img_ids)):
-        print(str(int(img_ids[i]))[4:])
-        img_path = '/home/leon/DeepLearning/Project/Dataset/train/raw_image_HowToTrainYourDragonTheHiddenWorld2019_' + str(int(img_ids[i]))[4:] + '.png'
+        print(str(int(img_ids[i]))[:])
+        img_path = '/home/leon/DeepLearning/Project/Dataset/train/raw_image_Romantic_' + str(int(img_ids[i]))[:] + '.png'
         print(img_path)
         img_bgr = cv2.imread(img_path)
         img_bgr = cv2.resize(img_bgr, (img_size, img_size))
