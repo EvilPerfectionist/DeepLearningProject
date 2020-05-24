@@ -16,6 +16,7 @@ The project is to reproduce the Memory-Augmented Networks proposed by [Coloring 
 
 * How to generate dataset
 * How to use generated dataset to train your model
+* How to use trained model to perform testing
 
 ## How to generate dataset
 
@@ -59,9 +60,9 @@ You can choose to train your networks in three different ways.
 
 The first option allows you to train a vanilla GAN for colorization. Setting `gen_norm` as `batch` makes each convolutional layer of the generator followed by a batch normalization layer.
 
-The second option allows you to train a GAN with a memory, which is the official version presented in the paper. Setting `gen_norm` as `adain` makes each convolutional layer of the generator followed by a adaptive instance normalization(AdaIn) layer, which is used for style transfer. During training phase, the parameters of AdaIn layers are set by color features from the ground truth images. During test phase, parameters of AdaIn layers are set by color features from the top-1 memory.
+The second option allows you to train a GAN with a memory, which is the official version presented in the paper. Setting `gen_norm` as `adain` makes each convolutional layer of the generator followed by a adaptive instance normalization(AdaIn) layer, which is used for style transfer. During training phase, the parameters of AdaIn layers are set by color features from the ground truth images. During validation phase, parameters of AdaIn layers are set by color features from the top-1 memory.
 
-The third option allows you to train a GAN with a memory and a feature integrator. During training phase, the parameters of AdaIn layers are set by color features from the ground truth images and the feature integrator learns the weights to combine top-1, top-2 and top-3 memory so that the combined feature is as close to ground truth feature as possible. During test phase, parameters of AdaIn layers are set by color features from the combination of top-1, top-2 and top-3 memory on the basis of learned weights of the feature integrator.
+The third option allows you to train a GAN with a memory and a feature integrator. During training phase, the parameters of AdaIn layers are set by color features from the ground truth images and the feature integrator learns the weights to combine top-1, top-2 and top-3 memory so that the combined feature is as close to ground truth feature as possible. During validation phase, parameters of AdaIn layers are set by color features from the combination of top-1, top-2 and top-3 memory on the basis of learned weights of the feature integrator.
 
 ***Note:*** All the source code of the networks(generator, discriminator, memory network, feature integrator) can be found in `networks.py`. The generator follows a U-Net architecture(See figure below). You can customize your network by adding and removing layers. Also, you can use your own generator and discriminator. ![network](network.png)
 
@@ -74,3 +75,17 @@ We made a small modification to the loss function of the generator from the orig
 ### Saving Models and Validation Results
 
 You can change the parameter `save_path` to the desired path where you want to save you model weights and validation colorization results. You can change the parameter `save_freq` to state you want to save model weights after training how many epochs. You can change the parameter `start_epoch` to start training from a certain epoch by loading saved model weights from that epoch. The parameter `end_epoch` decides the maximum training epoch.
+
+## How to use trained model to perform testing
+
+You can use `test.py` file to perform test with your trained model.
+
+Similar to the previous section, you can choose to perform test in four different ways.
+* Test with a basic generative adversarial network(GAN). If you want this option, please set the parameters `use_memory` as `False`, `use_feat_integrator` as `False` and `gen_norm` as `batch`.
+* Test with GAN with style transfer. If you want this option, please set the parameters `use_memory` as `False`, `use_feat_integrator` as `False` and `gen_norm` as `adain`.
+* Test with a GAN with memory but without feature integrator for colorization. If you want this option, please set the parameters `use_memory` as `True`, `use_feat_integrator` as `False`, and `gen_norm` as `adain`.
+* Train a GAN with memory and feature integrator for colorization. If you want this option, please set the parameters `use_memory` as `True`, `use_feat_integrator` as `True`, and `gen_norm` as `adain`.
+
+The purpose of the second option is to check how well the memory network can perform when the color feature provided by the memory is perfect.
+
+You should set parameters `mem_model_path`, `mem_generator_model_path`, `feat_model_path` as the path where you have saved your memory model, generator model and feature integrator model. You should set parameters `save_path` as the path where you want to save your test images.
