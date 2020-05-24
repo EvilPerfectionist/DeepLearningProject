@@ -8,10 +8,12 @@ The project is to reproduce the Memory-Augmented Networks proposed by [Coloring 
 
 * python-opencv
 * matplotlib
+* pytorch 1.1.0
 
 ## Outline
 
 * How to generate dataset
+* How to use generated dataset to train your model
 
 ## How to generate dataset
 
@@ -29,3 +31,15 @@ The file takes five parameters:
 import sys
 sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 ```
+
+## How to use generated dataset to train your model
+
+You can use `train.py` file to train your own model.
+
+### Initialize Dataset and DataLoader
+
+The train and validation datasets are initialized by loading the images from the train/val folders mentioned in the previous section and implementing some processing to these images.
+
+The processing details can be found in the file `dataset.py`. If we see this processing as a black box, it inputs the images from the train/val folders and outputs python dicts which contain the 5 elements: L channel of the images, ab channels of the images, color features of the images, greyscale images and image identities or numbers.
+
+Assume we have an image whose size is 256x256x3. Then the size of its ab channels is 256x256x2 and the number of total pixels is 256x256. The color feature of each pixel can be represented by a pair of ab values [a, b]. Therefore, the color features of the image can be represented by 256x256 pairs of [a, b] values. According to [Colorful Image Colorization](https://arxiv.org/abs/1603.08511), there are 313 possibilities of [a, b] pairs. Then we can map these 256x256 pairs of [a, b] values to a 313 possibility vector. This 313 possibility vector will be treated as our final color features of the image. 
