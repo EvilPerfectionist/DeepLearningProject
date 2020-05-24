@@ -13,15 +13,12 @@ def weights_init_normal(m):
         # they do not have a 'weight' attribute. We can skip the initialization for these layers.
         # These were already initalized in a different manner during their construction.
         try:
-            #torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
             torch.nn.init.xavier_uniform_(m.weight)
         except AttributeError:
             pass
     elif classname.find('BatchNorm2d') != -1 or classname.find('Linear') != -1:
-        #torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.xavier_uniform_(m.weight)
         torch.nn.init.zeros_(m.bias)
-        #torch.nn.init.constant_(m.bias.data, 0.0)
 
 class ConvBlock(nn.Module):
     def __init__(self, in_size, out_size, normalize=None, kernel_size=4, stride=2,

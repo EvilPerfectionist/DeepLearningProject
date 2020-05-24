@@ -47,3 +47,18 @@ Assume we have an image whose size is 256x256x3. Then the size of its ab channel
 In the previous section, I mentioned that all the saved images will be named as `raw_image_videoname_number.png` and each image has a unique number. We can extract this number from its name and treat this number as the identity of the image.
 
 The DataLoader will load a batch of elements in the datasets according to the `batch_size` parameter during the training phase.
+
+### Initialize Networks
+
+You can choose to train your networks in three different ways.
+* Train a basic generative adversarial network(GAN) for colorization. If you want this option, please set the parameters `use_memory` as `False`, `use_feat_integrator` as `False`, `gen_norm` as `batch` and `dis_norm` as `None`.
+* Train a GAN with memory but without feature_integrator for colorization. If you want this option, please set the parameters `use_memory` as `True`, `use_feat_integrator` as `False`, `gen_norm` as `adain` and `dis_norm` as `adain`.
+* Train a GAN with memory and feature integrator for colorization. If you want this option, please set the parameters `use_memory` as `True`, `use_feat_integrator` as `True`, `gen_norm` as `adain` and `dis_norm` as `adain`.
+
+The first option allows you to train a vanilla GAN for colorization. Setting `gen_norm` as `batch` makes each convolutional layer of the generator followed by a batch normalization layer.
+
+The second option allows you to train a GAN with a memory, which is the official version presented in the paper. Setting `gen_norm` as `adain` makes each convolutional layer of the generator followed by a adaptive instance normalization(AdaIn) layer, which is used for style transfer. During training phase, the parameters of AdaIn layers are set by color features from the ground truth images. During test phase, parameters of AdaIn layers are set by color features from the top-1 memory.
+
+The third option allows you to train a GAN with a memory and a feature integrator. During training phase, the parameters of AdaIn layers are set by color features from the ground truth images and the feature integrator learns the weights to combine top-1, top-2 and top-3 memory so that the combined feature is as close to ground truth feature as possible. During test phase, parameters of AdaIn layers are set by color features from the combination of top-1, top-2 and top-3 memory on the basis of learned weights of the feature integrator.
+
+***Note:*** All the source code of the networks(generator, discriminator, memory_network, feature integrator) can be found in `networks.py`. The generator follows a U-Net architecture. You can customize your network by adding and removing layers. Also, you can use your own generator and discriminator.
