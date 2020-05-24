@@ -115,3 +115,5 @@ Middle-right video frame is surrounded by a ***large green box*** so that it is 
 Bottom-left video frame is surrounded by a ***large red box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small red box***.
 
 You can watch the full video below. You will realize that sometimes that keeping using the top-1 color feature from the memory is not a good choice because top-2 or top-3 feature has a better color feature which is closer to the color feature from the ground truth. That is the reason why we intent to upgrade the network with a feature integrator.
+
+[![video](https://img.youtube.com/vi/rnFcCVl6y-M/0.jpg)](https://www.youtube.com/watch?v=rnFcCVl6y-M)
