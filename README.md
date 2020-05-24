@@ -108,11 +108,11 @@ Here I select one video screen shot to describe the content of different parts o
 * Bottom-left video frame: greyscale colorized by color feature from the ground truth with style transfer.
 * Image Array: the memory of the network.
 
-Middle-left video frame is surrounded by a ***large blue box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small blue box***.
+Middle-left video frame is surrounded by a ***large blue box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small blue box*** so that it features a greyish style.
 
-Middle-right video frame is surrounded by a ***large green box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small green box***.
+Middle-right video frame is surrounded by a ***large green box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small green box*** so that it features a orange style.
 
-Bottom-left video frame is surrounded by a ***large red box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small red box***.
+Bottom-left video frame is surrounded by a ***large red box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small red box*** so that it features a rainbow style.
 
 You can watch the full video below. You will realize that sometimes that keeping using the top-1 color feature from the memory is not a good choice because top-2 or top-3 feature has a better color feature which is closer to the color feature from the ground truth. That is the reason why we intent to upgrade the network with a feature integrator.
 
