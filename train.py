@@ -134,8 +134,6 @@ def train_and_validation(args):
 
                 res_input = batch['res_input'].to(device)
                 color_feat = batch['color_feat'].to(device)
-                print(color_feat.shape)
-                print(torch.sum(color_feat[0]))
                 img_l = (batch['img_l'] / 100.0).to(device)
                 img_ab = (batch['img_ab'] / 110.0).to(device)
                 img_id = batch['img_id'].to(device)
@@ -184,13 +182,8 @@ def train_and_validation(args):
 
                         with torch.set_grad_enabled(phase == 'train'):
                             top_features, ref_img_ids = mem.topk_feature(res_feature, 3)
-                            print("xixi" + str(torch.sum(top_features[0, 0, :])))
                             top_features = torch.transpose(top_features, dim0 = 1, dim1 = 2)
-                            print(top_features.shape)
                             combined_features = feature_integrator(top_features)
-                            for param in feature_integrator.parameters():
-                                print('feature_integrator' + str(param.data))
-                            print("haha" + str(torch.sum(combined_features[0])))
                             feat_loss = losses['KLD'](combined_features, color_feat)
 
                             if phase == 'train':
@@ -251,13 +244,12 @@ def train_and_validation(args):
                     sample_real_img_lab = real_img_lab
                     sample_fake_img_lab = fake_img_lab
                     sample_ref_img_ids = ref_img_ids
-                    print(ref_img_ids)
 
             # display losses
             print_losses(epoch_gen_adv_loss, epoch_gen_l1_loss,
                          epoch_disc_real_loss, epoch_disc_fake_loss,
                          epoch_disc_real_acc, epoch_disc_fake_acc,
-                         len(data_loaders[phase]), 1.0)
+                         len(data_loaders[phase]), args.l1_weight)
 
             if phase == 'val':
                 if epoch % args.save_freq == 0 or epoch == args.end_epoch - 1:

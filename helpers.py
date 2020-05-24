@@ -93,7 +93,6 @@ def save_sample(real_imgs_lab, fake_imgs_lab, img_ids, img_size, save_path, ref_
         cv2.imshow('sample', canvas)
         cv2.waitKey(10000)
 
-
 def save_test_sample(real_imgs_lab, fake_imgs_lab, img_ids, img_size, save_path, ref_path, plot_size=6, scale=1.6, show=False):
     """
     Create a grid of ground truth,
@@ -143,14 +142,12 @@ def save_test_sample(real_imgs_lab, fake_imgs_lab, img_ids, img_size, save_path,
         cv2.imshow('sample', canvas)
         cv2.waitKey(10000)
 
-
 def print_args(args):
     """Display args."""
     arg_list = str(args)[10:-1].split(',')
     for arg in arg_list:
         print(arg.strip())
     print('')
-
 
 def adjust_learning_rate(optimizer, global_step, base_lr, lr_decay_rate=0.1, lr_decay_steps=6e4):
     """Adjust the learning rate of the params of an optimizer."""

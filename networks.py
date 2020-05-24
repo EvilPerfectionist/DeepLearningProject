@@ -165,8 +165,6 @@ class MLP(nn.Module):
         self.model = nn.Sequential(*self.model)
 
     def forward(self, x):
-        print('hhhhhhh'+str(x.size(0)))
-        print(x.view(x.size(0), -1).shape)
         return self.model(x.view(x.size(0), -1))
 
 class AdaptiveInstanceNorm2d(nn.Module):
@@ -416,9 +414,7 @@ class Feature_Integrator(nn.Module):
         #     print(param.data)
 
     def forward(self, x):
-        print(x.shape)
         x = self.model(x)
         x = x.view(x.size(0), -1)
         x = x / torch.sum(x, dim=1, keepdim=True)
-        print(x.shape)
         return x
