@@ -11,12 +11,14 @@ The project is to reproduce the Memory-Augmented Networks proposed by [Coloring 
 * pytorch 1.1.0
 * skimage
 * sklearn
+* numpy
 
 ## Outline
 
 * How to generate dataset
 * How to use generated dataset to train your model
 * How to use trained model to perform testing
+* Video demonstration
 
 ## How to generate dataset
 
@@ -89,3 +91,27 @@ Similar to the previous section, you can choose to perform test in four differen
 The purpose of the second option is to check how well the memory network can perform when the color feature provided by the memory is perfect.
 
 You should set parameters `mem_model_path`, `mem_generator_model_path`, `feat_model_path` as the path where you have saved your memory model, generator model and feature integrator model. You should set parameters `save_path` as the path where you want to save your test images.
+
+## Video demonstration
+
+This video demonstration is realized by running `demonstration.py`. I use the Animation *How to train your dragon 3: The hidden world 2019* to make the datasets and train models in different ways and use these models to colorize a greyscale video to compare the effects of these models. This video can help you better understand what is the function of the memory part.
+
+![demo](demo.png)
+
+Here I select one video screen shot to describe the content of different parts of the video.
+
+* Top-left video frame: ground truth
+* Top-left video frame: greyscale
+* Middle-left video frame: greyscale colorized by top-1 feature from the memory.
+* Middle-right video frame: greyscale colorized by top-2 feature from the memory.
+* Bottom-left video frame: greyscale colorized by top-3 feature from the memory.
+* Bottom-left video frame: greyscale colorized by color feature from the ground truth with style transfer.
+* Image Array: the memory of the network.
+
+Middle-left video frame is surrounded by a ***large blue box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small blue box***.
+
+Middle-right video frame is surrounded by a ***large green box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small green box***.
+
+Bottom-left video frame is surrounded by a ***large red box*** so that it is colorized by color feature in the memory cell which is surrounded by a ***small red box***.
+
+You can watch the full video below. You will realize that sometimes that keeping using the top-1 color feature from the memory is not a good choice because top-2 or top-3 feature has a better color feature which is closer to the color feature from the ground truth. That is the reason why we intent to upgrade the network with a feature integrator.
