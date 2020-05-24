@@ -64,3 +64,9 @@ The second option allows you to train a GAN with a memory, which is the official
 The third option allows you to train a GAN with a memory and a feature integrator. During training phase, the parameters of AdaIn layers are set by color features from the ground truth images and the feature integrator learns the weights to combine top-1, top-2 and top-3 memory so that the combined feature is as close to ground truth feature as possible. During test phase, parameters of AdaIn layers are set by color features from the combination of top-1, top-2 and top-3 memory on the basis of learned weights of the feature integrator.
 
 ***Note:*** All the source code of the networks(generator, discriminator, memory network, feature integrator) can be found in `networks.py`. The generator follows a U-Net architecture(See figure below). You can customize your network by adding and removing layers. Also, you can use your own generator and discriminator. ![network](network.png)
+
+### Optimizers and Losses
+
+All the networks use Adam optimizer. We follow the idea in this [paper](https://arxiv.org/abs/1803.05400) to set the optimizer momentum term as 0.5 for the generator and discriminator.
+
+We made a small modification to the loss function of the generator from the original paper. We added a regulation term `lambda` to control the regulation effect of the L1 loss between the output image and the ground truth image. We set this regulation term as 100 to make this the output image as similar to the ground truth image as possible. The memory network still uses the Threshold Triplet Loss for unsupervised training. The feature integrator uses the KL divergence between the combined color feature and the ground truth color feature as the loss.
